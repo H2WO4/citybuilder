@@ -2,11 +2,8 @@
 
 const config = {
   mongodb: {
-    // TODO Change (or review) the url to your MongoDB:
     url: "mongodb://localhost:27017",
-
-    // TODO Change this to your database name:
-    databaseName: "YOURDATABASENAME",
+    databaseName: "main",
 
     options: {
       useNewUrlParser: true, // removes a deprecation warning when connecting
@@ -39,4 +36,4 @@ const config = {
   moduleSystem: 'commonjs',
 };
 
-module.exports = config;
+export default config;
