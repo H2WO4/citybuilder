@@ -1,20 +1,25 @@
-import * as THREE from './node_modules/three/build/three.module.js';
-import { MapControls } from './node_modules/three/examples/jsm/controls/MapControls.js';
-
+import * as THREE from "./node_modules/three/build/three.module.js";
+import { MapControls } from "./node_modules/three/examples/jsm/controls/MapControls.js";
+// (GLTFLoader non utilisé ici)
+ 
 // ----- paramètres -----
 const TILE_SIZE = 1;
 const GRID_VIS_SIZE = 128;
 const MIN_ZOOM = 0.4, MAX_ZOOM = 6;
-let viewSize = 40; // hauteur visible en unités
+let viewSize = 40;
+
+const ROAD_W = 3 * TILE_SIZE;
+const ROAD_L = 10 * TILE_SIZE;
+const ROAD_COST = 200;
 
 // ----- scène -----
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87ceeb);
+scene.background = new THREE.Color(0x55aa55);
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
 
 // ----- caméra ORTHO vue “en coin” -----
 function setOrtho(cam){
-  const a = innerWidth/innerHeight;
+  const a = innerWidth / innerHeight;
   cam.left = -a*viewSize/2; cam.right = a*viewSize/2;
   cam.top = viewSize/2; cam.bottom = -viewSize/2;
   cam.updateProjectionMatrix();
@@ -29,119 +34,141 @@ setOrtho(camera);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x55aa55);
+// important pour les textures sRGB
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
-// ----- contrôles (pan/zoom uniquement) -----
+// ===== HUD Argent =====
+let money = 200000;
+const hud = document.createElement("div");
+hud.style.position="fixed"; hud.style.top="12px"; hud.style.right="12px";
+hud.style.padding="8px 12px"; hud.style.border="2px solid #222"; hud.style.borderRadius="10px";
+hud.style.background="rgba(255,255,255,0.9)"; hud.style.fontFamily="system-ui, sans-serif";
+hud.style.fontSize="16px"; hud.style.color="#111"; hud.style.boxShadow="0 2px 8px rgba(0,0,0,0.15)";
+hud.style.pointerEvents="none"; document.body.appendChild(hud);
+const fmtEUR = new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0});
+function renderMoney(){ hud.textContent = fmtEUR.format(money); }
+renderMoney();
+
+// ===== Toolbar (icônes) =====
+const bar = document.createElement("div");
+bar.style.position="fixed"; bar.style.top="12px"; bar.style.left="12px";
+bar.style.display="flex"; bar.style.gap="8px"; bar.style.background="rgba(255,255,255,0.9)";
+bar.style.border="2px solid #222"; bar.style.borderRadius="10px"; bar.style.padding="6px";
+bar.style.fontFamily="system-ui,sans-serif"; bar.style.userSelect="none"; document.body.appendChild(bar);
+function makeBtn(label,title){ const b=document.createElement("button"); b.type="button"; b.textContent=label; b.title=title;
+  b.style.padding="6px 10px"; b.style.border="1px solid #333"; b.style.borderRadius="8px"; b.style.background="#fff";
+  b.style.cursor="pointer"; b.style.fontSize="14px"; b.style.minWidth="44px"; b.style.lineHeight="1";
+  b.onmouseenter=()=>b.style.background="#f2f2f2";
+  b.onmouseleave =()=>b.style.background=(b.dataset.active==="1")?"#dde8ff":"#fff"; return b; }
+const btnPan=makeBtn("🖐️","Navigation"), btnRoad=makeBtn("🛣️","Poser des routes"), btnBulld=makeBtn("🪓","Bulldozer");
+bar.append(btnPan,btnRoad,btnBulld);
+let mode="pan";
+function setActive(m){ mode=m; for (const b of [btnPan,btnRoad,btnBulld]){ b.dataset.active="0"; b.style.background="#fff"; }
+  if(mode==="pan"){btnPan.dataset.active="1";btnPan.style.background="#dde8ff";document.body.style.cursor="default";}
+  if(mode==="road"){btnRoad.dataset.active="1";btnRoad.style.background="#dde8ff";document.body.style.cursor="crosshair";}
+  if(mode==="bulldozer"){btnBulld.dataset.active="1";btnBulld.style.background="#dde8ff";document.body.style.cursor="not-allowed";}}
+btnPan.onclick=()=>setActive("pan"); btnRoad.onclick=()=>setActive("road"); btnBulld.onclick=()=>setActive("bulldozer"); setActive("pan");
+
+// ----- contrôles (pan/zoom) -----
 const controls = new MapControls(camera, renderer.domElement);
-controls.enableRotate = false;
-controls.screenSpacePanning = true;
-controls.enableDamping = true;
-controls.mouseButtons.LEFT = null;                 // clic gauche libre pour poser
-controls.mouseButtons.RIGHT = THREE.MOUSE.PAN;
-controls.addEventListener('change', () => {
-  camera.position.y = Math.max(camera.position.y, 1);
-});
+controls.enableRotate=false; controls.screenSpacePanning=true; controls.enableDamping=true;
+controls.mouseButtons.LEFT=null; controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
+controls.addEventListener("change",()=>{ camera.position.y=Math.max(camera.position.y,1); });
 
 // ----- grille “infinie” -----
 const grid = new THREE.GridHelper(GRID_VIS_SIZE, GRID_VIS_SIZE/TILE_SIZE, 0x000000, 0x000000);
-grid.material.transparent = true;
-grid.material.opacity = 0.35;
-grid.material.depthWrite = false;
-grid.renderOrder = 1;
-scene.add(grid);
+grid.material.transparent=true; grid.material.opacity=0.35; grid.material.depthWrite=false; grid.renderOrder=1; scene.add(grid);
 
-// ----- SOL VERT sous la grille -----
-const groundGeo = new THREE.PlaneGeometry(GRID_VIS_SIZE, GRID_VIS_SIZE);
-const groundMat = new THREE.MeshBasicMaterial({ color: 0x55aa55 }); // vert constant
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI/2;
-ground.position.y = -0.002; // léger offset sous la grille
-ground.renderOrder = 0;
-scene.add(ground);
+// ----- SOL GÉANT FIXE -----
+const GROUND_SIZE=4096;
+const groundGeo=new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE);
+const groundMat=new THREE.MeshBasicMaterial({color:0x55aa55});
+const ground=new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x=-Math.PI/2; ground.position.y=-0.002; ground.renderOrder=0; scene.add(ground);
 
-// repositionne grille + sol autour de la caméra
-function updateGrid(){
-  const gx = Math.round(camera.position.x / TILE_SIZE) * TILE_SIZE;
-  const gz = Math.round(camera.position.z / TILE_SIZE) * TILE_SIZE;
-  grid.position.set(gx, 0, gz);
-  ground.position.set(gx, -0.002, gz);
-}
+function updateGrid(){ const gx=Math.round(camera.position.x/TILE_SIZE)*TILE_SIZE;
+  const gz=Math.round(camera.position.z/TILE_SIZE)*TILE_SIZE; grid.position.set(gx,0,gz); }
 
-// ----- plan Y=0 pour raycast -----
-const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-function screenToGround(e){
-  mouse.x = (e.clientX/innerWidth)*2 - 1;
-  mouse.y = -(e.clientY/innerHeight)*2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  const p = new THREE.Vector3();
-  return raycaster.ray.intersectPlane(groundPlane, p) ? p.clone() : null;
-}
-function snap(vec3){
-  const x = Math.floor(vec3.x/TILE_SIZE)*TILE_SIZE + TILE_SIZE/2;
-  const z = Math.floor(vec3.z/TILE_SIZE)*TILE_SIZE + TILE_SIZE/2;
-  return new THREE.Vector3(x,0,z);
-}
+// ----- Raycast & snapping -----
+const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+const raycaster=new THREE.Raycaster(); const mouse=new THREE.Vector2();
+function screenToGround(e){ mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera); const p=new THREE.Vector3();
+  return raycaster.ray.intersectPlane(groundPlane,p)?p.clone():null; }
+function snap(v){ const x=Math.floor(v.x/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2;
+  const z=Math.floor(v.z/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2; return new THREE.Vector3(x,0,z); }
 
-// ----- curseur -----
-const tileGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE); tileGeo.rotateX(-Math.PI/2);
-const cursor = new THREE.Mesh(
-  tileGeo,
-  new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.25 })
-);
-cursor.position.y = 0.001; cursor.visible = false; scene.add(cursor);
+// ----- curseur 3x10 -----
+const cursorGeo=new THREE.PlaneGeometry(ROAD_W, ROAD_L); cursorGeo.rotateX(-Math.PI/2);
+const cursor=new THREE.Mesh(cursorGeo, new THREE.MeshBasicMaterial({color:0xffff00, transparent:true, opacity:0.25}));
+cursor.position.y=0.001; cursor.visible=false; scene.add(cursor);
 
-// ----- routes -----
-const roadGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE); roadGeo.rotateX(-Math.PI/2);
-const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-const roads = new Map(); // "x:z" -> mesh
-function k(wx,wz){ return `${wx}:${wz}`; }
+// ====== TEXTURE DES ROUTES ======
+const texLoader = new THREE.TextureLoader();
+const roadTex = texLoader.load("./texture_models/road.glb");
+roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping;
+roadTex.repeat.set(ROAD_W / TILE_SIZE, ROAD_L / TILE_SIZE); // 3×10 motifs
+roadTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+roadTex.colorSpace = THREE.SRGBColorSpace;
+
+// Matériau texturé
+const roadMat = new THREE.MeshStandardMaterial({
+  map: roadTex,
+  metalness: 0,
+  roughness: 1
+});
+
+// ----- routes 3x10 -----
+const roadGeo=new THREE.PlaneGeometry(ROAD_W, ROAD_L); roadGeo.rotateX(-Math.PI/2);
+const roads=new Map();
+function keyFromCenter(wx,wz){ return `${wx}:${wz}`; }
+
 function place(wx,wz){
-  const id = k(wx,wz); if (roads.has(id)) return;
-  const m = new THREE.Mesh(roadGeo, roadMat);
-  m.position.set(wx,0.0005,wz);
-  m.renderOrder = 2;
+  if (money < ROAD_COST) return;
+  const id=keyFromCenter(wx,wz); if(roads.has(id)) return;
+  const m=new THREE.Mesh(roadGeo, roadMat);
+  m.position.set(wx,0.0005,wz); m.renderOrder=2; m.userData={cost:ROAD_COST};
   scene.add(m); roads.set(id,m);
+  money -= ROAD_COST; renderMoney();
 }
-function erase(wx,wz){
-  const id = k(wx,wz); const m = roads.get(id); if(!m) return;
-  scene.remove(m); m.geometry.dispose(); m.material.dispose(); roads.delete(id);
+
+function eraseAtPointer(event){
+  mouse.x=(event.clientX/innerWidth)*2-1; mouse.y=-(event.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObjects([...roads.values()], false); if(!hits.length) return;
+  const mesh=hits[0].object; let hitKey=null;
+  for(const [k,m] of roads.entries()){ if(m===mesh){ hitKey=k; break; } }
+  if(!hitKey) return;
+  scene.remove(mesh); mesh.geometry.dispose();
+  if (mesh.material.map) mesh.material.map.dispose(); mesh.material.dispose();
+  roads.delete(hitKey); money += mesh.userData?.cost ?? ROAD_COST; renderMoney();
 }
 
 // ----- interactions -----
-let painting = false;
-addEventListener('pointermove', e=>{
-  const p = screenToGround(e); if(!p){ cursor.visible=false; return; }
-  const s = snap(p); cursor.visible=true; cursor.position.set(s.x,0.001,s.z);
-  if (painting) place(s.x, s.z);
+let painting=false;
+addEventListener("pointermove", e=>{
+  const p=screenToGround(e); if(!p){ cursor.visible=false; return; }
+  const s=snap(p); cursor.visible=(mode!=="pan"); cursor.position.set(s.x,0.001,s.z);
+  if(mode==="road" && painting) place(s.x,s.z);
+  if(mode==="bulldozer" && painting) eraseAtPointer(e);
 });
-addEventListener('pointerdown', e=>{
-  const p = screenToGround(e); if(!p) return;
-  const s = snap(p);
-  if (e.button===0){ painting=true; place(s.x,s.z); }     // gauche = poser
-  if (e.button===2){ e.preventDefault(); erase(s.x,s.z);} // droit = gommer
+addEventListener("pointerdown", e=>{
+  if(e.button===0){
+    if(mode==="road"){ const p=screenToGround(e); if(!p) return; const s=snap(p); painting=true; place(s.x,s.z); }
+    else if(mode==="bulldozer"){ painting=true; eraseAtPointer(e); }
+  } else if(e.button===2){ e.preventDefault(); }
 });
-addEventListener('pointerup', ()=> painting=false);
-addEventListener('contextmenu', e=> e.preventDefault());
+addEventListener("pointerup", ()=> painting=false);
+addEventListener("contextmenu", e=> e.preventDefault());
 
 // ----- zoom borné -----
-addEventListener('wheel', ()=>{
-  camera.zoom = THREE.MathUtils.clamp(camera.zoom, MIN_ZOOM, MAX_ZOOM);
-  camera.updateProjectionMatrix();
-});
+addEventListener("wheel", ()=>{ camera.zoom=THREE.MathUtils.clamp(camera.zoom, MIN_ZOOM, MAX_ZOOM); camera.updateProjectionMatrix(); });
 
 // ----- resize -----
-addEventListener('resize', ()=>{
-  setOrtho(camera);
-  renderer.setSize(innerWidth, innerHeight);
-});
+addEventListener("resize", ()=>{ setOrtho(camera); renderer.setSize(innerWidth, innerHeight); });
 
 // ----- boucle -----
-function tick(){
-  updateGrid();
-  controls.update();
-  renderer.render(scene, camera);
-  requestAnimationFrame(tick);
-}
+function tick(){ updateGrid(); controls.update(); renderer.render(scene, camera); requestAnimationFrame(tick); }
 requestAnimationFrame(tick);
