@@ -1,0 +1,7 @@
+procs:
+  run:
+    shell: yarn vite
+    autostart: false
+  preview:
+    shell: yarn vite preview
+    autostart: false
