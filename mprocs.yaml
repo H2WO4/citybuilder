@@ -1,7 +1,12 @@
 procs:
-  run:
+  client-run:
+    cwd: client
     shell: yarn vite
     autostart: false
-  preview:
+  client-preview:
+    cwd: client
     shell: yarn vite preview
+    autostart: false
+  db:
+    shell: docker compose up
     autostart: false

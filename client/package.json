@@ -1,0 +1,12 @@
+{
+  "name": "client",
+  "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^7.1.9"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  }
+}

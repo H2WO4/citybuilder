@@ -30,8 +30,6 @@ erDiagram
   CITY ||--o{ CONTRACT : signs
 ```
 
-
-
 # City
 
 Une `City` est constituée de :
