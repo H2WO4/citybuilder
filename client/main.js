@@ -50,7 +50,7 @@ const fmtEUR = new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",ma
 function renderMoney(){ hud.textContent = fmtEUR.format(money); }
 renderMoney();
 
-// ===== Toolbar =====
+// ===== Toolbar (sans orientation) =====
 const bar = document.createElement("div");
 Object.assign(bar.style,{position:"fixed",top:"12px",left:"12px",display:"flex",gap:"8px",
   background:"rgba(255,255,255,0.9)",border:"2px solid #222",borderRadius:"10px",padding:"6px",
@@ -66,9 +66,8 @@ function makeBtn(label,title){
 }
 const btnPan=makeBtn("🖐️","Navigation");
 const btnRoad=makeBtn("🛣️","Poser des routes");
-const btnOrient=makeBtn("↕︎","Orientation route (↕︎/↔︎)");
 const btnBulld=makeBtn("🪓","Bulldozer");
-bar.append(btnPan, btnRoad, btnOrient, btnBulld);
+bar.append(btnPan, btnRoad, btnBulld);
 
 let mode="pan";
 function setActive(m){
@@ -82,69 +81,43 @@ btnRoad.onclick = ()=> setActive("road");
 btnBulld.onclick = ()=> setActive("bulldozer");
 setActive("pan");
 
-// ----- orientation route -----
-let orient = "vertical"; // "vertical": longueur sur Z, "horizontal": sur X
-function toggleOrient(){
-  orient = (orient === "vertical") ? "horizontal" : "vertical";
-  btnOrient.textContent = (orient === "vertical") ? "↕︎" : "↔︎";
-  updateCursorOrient();
-}
-btnOrient.onclick = toggleOrient;
-
 // ----- contrôles -----
 const controls = new MapControls(camera, renderer.domElement);
-controls.enableRotate=false;
-controls.screenSpacePanning=true;
-controls.enableDamping=true;
-controls.mouseButtons.LEFT=null;
-controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
+controls.enableRotate=false; controls.screenSpacePanning=true; controls.enableDamping=true;
+controls.mouseButtons.LEFT=null; controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
 controls.addEventListener("change",()=> camera.position.y=Math.max(camera.position.y,1));
 
 // ----- grille + sol -----
 const grid = new THREE.GridHelper(GRID_VIS_SIZE, GRID_VIS_SIZE / TILE_SIZE, 0x000000, 0x000000);
-grid.material.transparent=true;
-grid.material.opacity=0.35;
-grid.material.depthWrite=false;
-grid.renderOrder=1;
-scene.add(grid);
-
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(4096,4096),
-  new THREE.MeshBasicMaterial({color:0x55aa55})
-);
-ground.rotation.x=-Math.PI/2;
-ground.position.y=-0.002;
-scene.add(ground);
-
-function updateGrid(){
-  const gx=Math.round(camera.position.x/TILE_SIZE)*TILE_SIZE;
-  const gz=Math.round(camera.position.z/TILE_SIZE)*TILE_SIZE;
-  grid.position.set(gx,0,gz);
-}
+grid.material.transparent=true; grid.material.opacity=0.35; grid.material.depthWrite=false; grid.renderOrder=1; scene.add(grid);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(4096,4096), new THREE.MeshBasicMaterial({color:0x55aa55}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-0.002; scene.add(ground);
+function updateGrid(){ const gx=Math.round(camera.position.x/TILE_SIZE)*TILE_SIZE; const gz=Math.round(camera.position.z/TILE_SIZE)*TILE_SIZE; grid.position.set(gx,0,gz); }
 
 // ----- Raycast & snap -----
 const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 const raycaster=new THREE.Raycaster(); const mouse=new THREE.Vector2();
-function screenToGround(e){
-  mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clientY/innerHeight)*2+1;
-  raycaster.setFromCamera(mouse,camera);
-  const p=new THREE.Vector3();
-  return raycaster.ray.intersectPlane(groundPlane,p)?p.clone():null;
+function screenToGround(e){ mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera); const p=new THREE.Vector3();
+  return raycaster.ray.intersectPlane(groundPlane,p)?p.clone():null; }
+function snap(v){ const x=Math.floor(v.x/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2; const z=Math.floor(v.z/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2; return new THREE.Vector3(x,0,z); }
+
+// ----- orientation via clavier A -----
+let angleIndex = 0;                               // 0,1,2,3
+const ANG = [0, Math.PI/2, Math.PI, -Math.PI/2];  // 0°,90°,180°,-90°
+function rotateQuarter(){
+  angleIndex = (angleIndex + 1) & 3;
+  updateCursorOrient();
 }
-function snap(v){
-  const x=Math.floor(v.x/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2;
-  const z=Math.floor(v.z/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2;
-  return new THREE.Vector3(x,0,z);
-}
+addEventListener("keydown", (e)=>{
+  if ((e.key === "a" || e.key === "A") && mode === "road") { e.preventDefault(); rotateQuarter(); }
+});
 
 // ----- curseur 3x10 -----
 const cursorGeo=new THREE.PlaneGeometry(ROAD_W, ROAD_L); cursorGeo.rotateX(-Math.PI/2);
-const cursor=new THREE.Mesh(
-  cursorGeo,
-  new THREE.MeshBasicMaterial({color:0xffff00, transparent:true, opacity:0.25})
-);
+const cursor=new THREE.Mesh(cursorGeo, new THREE.MeshBasicMaterial({color:0xffff00, transparent:true, opacity:0.25}));
 cursor.position.y=0.001; cursor.visible=false; scene.add(cursor);
-function updateCursorOrient(){ cursor.rotation.y = (orient === "horizontal") ? Math.PI/2 : 0; }
+function updateCursorOrient(){ cursor.rotation.y = ANG[angleIndex]; }
 updateCursorOrient();
 
 // ====== ROUTES via GLB cloné ======
@@ -154,12 +127,7 @@ let roadScale = new THREE.Vector3(1,1,1);
 
 gltfLoader.load("./texture_models/road.glb", (gltf)=>{
   roadPrefab = gltf.scene;
-  roadPrefab.traverse(o=>{
-    if (o.isMesh && o.material){
-      o.castShadow=o.receiveShadow=true;
-      o.material.metalness=0; o.material.roughness=1;
-    }
-  });
+  roadPrefab.traverse(o=>{ if (o.isMesh && o.material){ o.castShadow=o.receiveShadow=true; o.material.metalness=0; o.material.roughness=1; }});
   const box = new THREE.Box3().setFromObject(roadPrefab);
   const size = new THREE.Vector3(); box.getSize(size);
   roadScale.set(ROAD_W/(size.x||1), 1, ROAD_L/(size.z||1));
@@ -174,7 +142,7 @@ function place(wx,wz){
   const obj = roadPrefab.clone(true);
   obj.position.set(wx,0.0005,wz);
   obj.scale.copy(roadScale);
-  obj.rotation.y = (orient === "horizontal") ? Math.PI/2 : 0;
+  obj.rotation.y = ANG[angleIndex];    // orientation courante
   obj.userData.cost = ROAD_COST;
   scene.add(obj); roads.set(id,obj);
   money -= ROAD_COST; renderMoney();
@@ -185,11 +153,7 @@ function eraseAtPointer(event){
   raycaster.setFromCamera(mouse,camera);
   const hits=raycaster.intersectObjects([...roads.values()], true); if(!hits.length) return;
   let node = hits[0].object, root=null;
-  for(;;){
-    if ([...roads.values()].includes(node)) { root=node; break; }
-    if (!node.parent || node.parent===scene) break;
-    node=node.parent;
-  }
+  for(;;){ if ([...roads.values()].includes(node)) { root=node; break; } if (!node.parent || node.parent===scene) break; node=node.parent; }
   if(!root) return;
   let hitKey=null; for(const [k,m] of roads.entries()) if(m===root){ hitKey=k; break; }
   if(!hitKey) return;
@@ -225,11 +189,5 @@ addEventListener("resize", ()=>{
   setOrtho(camera);
   renderer.setSize(innerWidth, innerHeight);
 });
-
-function tick(){
-  updateGrid();
-  controls.update();
-  renderer.render(scene, camera);
-  requestAnimationFrame(tick);
-}
+function tick(){ updateGrid(); controls.update(); renderer.render(scene, camera); requestAnimationFrame(tick); }
 requestAnimationFrame(tick);
