@@ -1,6 +1,7 @@
 import * as THREE from "./node_modules/three/build/three.module.js";
 import { MapControls } from "./node_modules/three/examples/jsm/controls/MapControls.js";
-// (GLTFLoader non utilisé ici)
+import { GLTFLoader } from "./node_modules/three/examples/jsm/loaders/GLTFLoader.js";
+
  
 // ----- paramètres -----
 const TILE_SIZE = 1;
@@ -106,19 +107,62 @@ const cursor=new THREE.Mesh(cursorGeo, new THREE.MeshBasicMaterial({color:0xffff
 cursor.position.y=0.001; cursor.visible=false; scene.add(cursor);
 
 // ====== TEXTURE DES ROUTES ======
-const texLoader = new THREE.TextureLoader();
-const roadTex = texLoader.load("./texture_models/road.glb");
-roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping;
-roadTex.repeat.set(ROAD_W / TILE_SIZE, ROAD_L / TILE_SIZE); // 3×10 motifs
-roadTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-roadTex.colorSpace = THREE.SRGBColorSpace;
-
-// Matériau texturé
+// Charge un .glb contenant une texture (ou un mesh avec material.map) via GLTFLoader
+// Ne pas utiliser TextureLoader pour un fichier .glb
 const roadMat = new THREE.MeshStandardMaterial({
-  map: roadTex,
+  map: null,
   metalness: 0,
   roughness: 1
 });
+
+const gltfLoader = new GLTFLoader();
+gltfLoader.load("./texture_models/road.glb",
+  (gltf) => {
+    // essaie d'extraire la première texture trouvée dans le glb
+    let roadTex = null;
+    gltf.scene.traverse((c) => {
+      if (!roadTex && c.isMesh && c.material) {
+        const m = c.material;
+        if (Array.isArray(m)) {
+          for (const mm of m) if (mm.map) { roadTex = mm.map; break; }
+        } else if (m.map) {
+          roadTex = m.map;
+        }
+      }
+    });
+
+    // fallback : certains gltf exposent une liste de materials
+    if (!roadTex && gltf.materials && gltf.materials.length) {
+      for (const m of gltf.materials) {
+        if (m.map) { roadTex = m.map; break; }
+      }
+    }
+
+    if (!roadTex) {
+      console.warn('Aucune texture trouvée dans road.glb. Vérifiez le fichier ou utilisez une image (jpg/png).');
+      return;
+    }
+
+    // config texture pour répétition et espace colorimétrique
+    roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping;
+    roadTex.repeat.set(ROAD_W / TILE_SIZE, ROAD_L / TILE_SIZE);
+    roadTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    roadTex.colorSpace = THREE.SRGBColorSpace;
+
+    // assigne la texture au matériau des routes et met à jour les meshes existants
+    roadMat.map = roadTex;
+    roadMat.needsUpdate = true;
+    try {
+      if (typeof roads !== 'undefined') {
+        for (const m of roads.values()) {
+          if (m && m.material) { m.material.map = roadTex; m.material.needsUpdate = true; }
+        }
+      }
+    } catch (e) { /* noop */ }
+  },
+  undefined,
+  (err) => { console.error('Erreur chargement road.glb :', err); }
+);
 
 // ----- routes 3x10 -----
 const roadGeo=new THREE.PlaneGeometry(ROAD_W, ROAD_L); roadGeo.rotateX(-Math.PI/2);
