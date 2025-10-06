@@ -1,10 +1,44 @@
+```mermaid
+---
+Models
+---
+
+erDiagram
+  CITY {
+    string name
+
+    int money
+    int food
+  }
+
+  BUILDING {
+    Point position
+    string type
+  }
+
+  CONTRACT {
+    City first
+    City second
+    
+    int money
+    int food
+    int electricity
+    int water
+  }
+
+  CITY ||--o{ BUILDING : contains
+  CITY ||--o{ CONTRACT : signs
+```
+
+
+
 # City
 
 Une `City` est constituée de :
 
 - plusieurs `Building`s
-- une `CityRessources`
 - plusieurs `Contract`s
+- une `CityRessources`
 
 ## CityRessources
 
