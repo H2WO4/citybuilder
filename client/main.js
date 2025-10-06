@@ -2,13 +2,11 @@ import * as THREE from "./node_modules/three/build/three.module.js";
 import { MapControls } from "./node_modules/three/examples/jsm/controls/MapControls.js";
 import { GLTFLoader } from "./node_modules/three/examples/jsm/loaders/GLTFLoader.js";
 
- 
 // ----- paramètres -----
 const TILE_SIZE = 1;
 const GRID_VIS_SIZE = 128;
 const MIN_ZOOM = 0.4, MAX_ZOOM = 6;
 let viewSize = 40;
-
 const ROAD_W = 3 * TILE_SIZE;
 const ROAD_L = 10 * TILE_SIZE;
 const ROAD_COST = 200;
@@ -17,6 +15,9 @@ const ROAD_COST = 200;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x55aa55);
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+// vrai soleil pour PBR
+const sun = new THREE.DirectionalLight(0xffffff, 2);
+sun.position.set(50,100,50); scene.add(sun); scene.add(sun.target);
 
 // ----- caméra ORTHO vue “en coin” -----
 function setOrtho(cam){
@@ -36,7 +37,6 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x55aa55);
-// important pour les textures sRGB
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
@@ -52,7 +52,7 @@ const fmtEUR = new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",ma
 function renderMoney(){ hud.textContent = fmtEUR.format(money); }
 renderMoney();
 
-// ===== Toolbar (icônes) =====
+// ===== Toolbar =====
 const bar = document.createElement("div");
 bar.style.position="fixed"; bar.style.top="12px"; bar.style.left="12px";
 bar.style.display="flex"; bar.style.gap="8px"; bar.style.background="rgba(255,255,255,0.9)";
@@ -72,25 +72,18 @@ function setActive(m){ mode=m; for (const b of [btnPan,btnRoad,btnBulld]){ b.dat
   if(mode==="bulldozer"){btnBulld.dataset.active="1";btnBulld.style.background="#dde8ff";document.body.style.cursor="not-allowed";}}
 btnPan.onclick=()=>setActive("pan"); btnRoad.onclick=()=>setActive("road"); btnBulld.onclick=()=>setActive("bulldozer"); setActive("pan");
 
-// ----- contrôles (pan/zoom) -----
+// ----- contrôles -----
 const controls = new MapControls(camera, renderer.domElement);
 controls.enableRotate=false; controls.screenSpacePanning=true; controls.enableDamping=true;
 controls.mouseButtons.LEFT=null; controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
 controls.addEventListener("change",()=>{ camera.position.y=Math.max(camera.position.y,1); });
 
-// ----- grille “infinie” -----
+// ----- grille + sol -----
 const grid = new THREE.GridHelper(GRID_VIS_SIZE, GRID_VIS_SIZE/TILE_SIZE, 0x000000, 0x000000);
 grid.material.transparent=true; grid.material.opacity=0.35; grid.material.depthWrite=false; grid.renderOrder=1; scene.add(grid);
-
-// ----- SOL GÉANT FIXE -----
-const GROUND_SIZE=4096;
-const groundGeo=new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE);
-const groundMat=new THREE.MeshBasicMaterial({color:0x55aa55});
-const ground=new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x=-Math.PI/2; ground.position.y=-0.002; ground.renderOrder=0; scene.add(ground);
-
-function updateGrid(){ const gx=Math.round(camera.position.x/TILE_SIZE)*TILE_SIZE;
-  const gz=Math.round(camera.position.z/TILE_SIZE)*TILE_SIZE; grid.position.set(gx,0,gz); }
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(4096,4096), new THREE.MeshBasicMaterial({color:0x55aa55}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-0.002; scene.add(ground);
+function updateGrid(){ const gx=Math.round(camera.position.x/TILE_SIZE)*TILE_SIZE; const gz=Math.round(camera.position.z/TILE_SIZE)*TILE_SIZE; grid.position.set(gx,0,gz); }
 
 // ----- Raycast & snapping -----
 const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -98,96 +91,69 @@ const raycaster=new THREE.Raycaster(); const mouse=new THREE.Vector2();
 function screenToGround(e){ mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clientY/innerHeight)*2+1;
   raycaster.setFromCamera(mouse,camera); const p=new THREE.Vector3();
   return raycaster.ray.intersectPlane(groundPlane,p)?p.clone():null; }
-function snap(v){ const x=Math.floor(v.x/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2;
-  const z=Math.floor(v.z/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2; return new THREE.Vector3(x,0,z); }
+function snap(v){ const x=Math.floor(v.x/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2; const z=Math.floor(v.z/TILE_SIZE)*TILE_SIZE+TILE_SIZE/2; return new THREE.Vector3(x,0,z); }
 
 // ----- curseur 3x10 -----
 const cursorGeo=new THREE.PlaneGeometry(ROAD_W, ROAD_L); cursorGeo.rotateX(-Math.PI/2);
 const cursor=new THREE.Mesh(cursorGeo, new THREE.MeshBasicMaterial({color:0xffff00, transparent:true, opacity:0.25}));
 cursor.position.y=0.001; cursor.visible=false; scene.add(cursor);
 
-// ====== TEXTURE DES ROUTES ======
-// Charge un .glb contenant une texture (ou un mesh avec material.map) via GLTFLoader
-// Ne pas utiliser TextureLoader pour un fichier .glb
-const roadMat = new THREE.MeshStandardMaterial({
-  map: null,
-  metalness: 0,
-  roughness: 1
-});
-
+// ====== ROUTES via GLB cloné ======
 const gltfLoader = new GLTFLoader();
-gltfLoader.load("./texture_models/road.glb",
-  (gltf) => {
-    // essaie d'extraire la première texture trouvée dans le glb
-    let roadTex = null;
-    gltf.scene.traverse((c) => {
-      if (!roadTex && c.isMesh && c.material) {
-        const m = c.material;
-        if (Array.isArray(m)) {
-          for (const mm of m) if (mm.map) { roadTex = mm.map; break; }
-        } else if (m.map) {
-          roadTex = m.map;
-        }
-      }
-    });
+let roadPrefab = null;
+let roadScale = new THREE.Vector3(1,1,1);
 
-    // fallback : certains gltf exposent une liste de materials
-    if (!roadTex && gltf.materials && gltf.materials.length) {
-      for (const m of gltf.materials) {
-        if (m.map) { roadTex = m.map; break; }
-      }
+gltfLoader.load("./texture_models/road.glb", (gltf)=>{
+  roadPrefab = gltf.scene;
+  roadPrefab.traverse(o=>{
+    if (o.isMesh && o.material){
+      o.castShadow = o.receiveShadow = true;
+      o.material.metalness = 0; o.material.roughness = 1;
     }
+  });
+  // scale -> 3 x 10
+  const box = new THREE.Box3().setFromObject(roadPrefab);
+  const size = new THREE.Vector3(); box.getSize(size);
+  roadScale.set(ROAD_W/(size.x||1), 1, ROAD_L/(size.z||1));
+}, undefined, (e)=> console.error("GLB error:", e));
 
-    if (!roadTex) {
-      console.warn('Aucune texture trouvée dans road.glb. Vérifiez le fichier ou utilisez une image (jpg/png).');
-      return;
-    }
-
-    // config texture pour répétition et espace colorimétrique
-    roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping;
-    roadTex.repeat.set(ROAD_W / TILE_SIZE, ROAD_L / TILE_SIZE);
-    roadTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    roadTex.colorSpace = THREE.SRGBColorSpace;
-
-    // assigne la texture au matériau des routes et met à jour les meshes existants
-    roadMat.map = roadTex;
-    roadMat.needsUpdate = true;
-    try {
-      if (typeof roads !== 'undefined') {
-        for (const m of roads.values()) {
-          if (m && m.material) { m.material.map = roadTex; m.material.needsUpdate = true; }
-        }
-      }
-    } catch (e) { /* noop */ }
-  },
-  undefined,
-  (err) => { console.error('Erreur chargement road.glb :', err); }
-);
-
-// ----- routes 3x10 -----
-const roadGeo=new THREE.PlaneGeometry(ROAD_W, ROAD_L); roadGeo.rotateX(-Math.PI/2);
-const roads=new Map();
+const roads=new Map(); // key -> root Object3D
 function keyFromCenter(wx,wz){ return `${wx}:${wz}`; }
 
 function place(wx,wz){
-  if (money < ROAD_COST) return;
+  if (!roadPrefab || money < ROAD_COST) return;
   const id=keyFromCenter(wx,wz); if(roads.has(id)) return;
-  const m=new THREE.Mesh(roadGeo, roadMat);
-  m.position.set(wx,0.0005,wz); m.renderOrder=2; m.userData={cost:ROAD_COST};
-  scene.add(m); roads.set(id,m);
+  const obj = roadPrefab.clone(true);
+  obj.position.set(wx,0.0005,wz);
+  obj.scale.copy(roadScale);
+  obj.userData.cost = ROAD_COST;
+  scene.add(obj); roads.set(id,obj);
   money -= ROAD_COST; renderMoney();
 }
 
 function eraseAtPointer(event){
   mouse.x=(event.clientX/innerWidth)*2-1; mouse.y=-(event.clientY/innerHeight)*2+1;
   raycaster.setFromCamera(mouse,camera);
-  const hits=raycaster.intersectObjects([...roads.values()], false); if(!hits.length) return;
-  const mesh=hits[0].object; let hitKey=null;
-  for(const [k,m] of roads.entries()){ if(m===mesh){ hitKey=k; break; } }
+  const hits=raycaster.intersectObjects([...roads.values()], true); if(!hits.length) return;
+
+  // remonte au clone racine stocké dans roads
+  let node = hits[0].object;
+  let root = null;
+  for(;;){
+    if ([...roads.values()].includes(node)) { root = node; break; }
+    if (!node.parent || node.parent===scene) break;
+    node = node.parent;
+  }
+  if (!root) return;
+
+  // retrouve la clé
+  let hitKey=null; for(const [k,m] of roads.entries()) if(m===root){ hitKey=k; break; }
   if(!hitKey) return;
-  scene.remove(mesh); mesh.geometry.dispose();
-  if (mesh.material.map) mesh.material.map.dispose(); mesh.material.dispose();
-  roads.delete(hitKey); money += mesh.userData?.cost ?? ROAD_COST; renderMoney();
+
+  scene.remove(root);
+  root.traverse(n=>{ if(n.isMesh){ n.geometry?.dispose(); if(n.material?.map) n.material.map.dispose(); n.material?.dispose(); }});
+  roads.delete(hitKey);
+  money += root.userData?.cost ?? ROAD_COST; renderMoney();
 }
 
 // ----- interactions -----
@@ -207,10 +173,8 @@ addEventListener("pointerdown", e=>{
 addEventListener("pointerup", ()=> painting=false);
 addEventListener("contextmenu", e=> e.preventDefault());
 
-// ----- zoom borné -----
+// ----- zoom + resize -----
 addEventListener("wheel", ()=>{ camera.zoom=THREE.MathUtils.clamp(camera.zoom, MIN_ZOOM, MAX_ZOOM); camera.updateProjectionMatrix(); });
-
-// ----- resize -----
 addEventListener("resize", ()=>{ setOrtho(camera); renderer.setSize(innerWidth, innerHeight); });
 
 // ----- boucle -----
