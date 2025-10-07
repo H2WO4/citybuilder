@@ -98,40 +98,58 @@ let preview: any = null;
 const fabList = document.getElementById("fab-tools");
 function updateFabActive() {
   if (!fabList) return;
-  [...fabList.children].forEach(li => {
+  [...fabList.children].forEach(el => {
+    const li = el as HTMLElement;
     if (li.dataset.tool === mode) li.classList.add("active"); else li.classList.remove("active");
   });
 }
 function setActive(m: any) {
+  // Ignore if already in this mode (except road piece cycling handled elsewhere)
+  const prevMode = mode;
   mode = m;
   updateFabActive();
   document.body.style.cursor = (m === "road" || m === "house" || m === "building") ? "crosshair" : m === "bulldozer" ? "not-allowed" : "default";
   if (typeof grid !== "undefined") grid.visible = (m !== "pan");
-  // Bulldozer : aucune preview
-  if (preview) {
-    if (m === "road" || m === "house" || m === "building") {
-      preview.visible = !overUI(lastPointerEvent);
-    } else {
-      preview.visible = false;
-    }
-  }
+
+  // For build modes always recreate preview to ensure correct model (fix house showing road)
   if (m === "road" || m === "house" || m === "building") {
-    if (!preview) makePreview();
+    makePreview();
+    if (preview) preview.visible = !overUI(lastPointerEvent);
+  } else {
+    if (preview) preview.visible = false;
   }
+
+  // Reset rotation index if switching between categories? (Keep orientation consistent, so do nothing.)
+  // If leaving a build mode clear painting state
+  if (prevMode !== m && painting) painting = false;
 }
 if (fabList) {
   fabList.addEventListener("click", (e) => {
-    const li = e.target.closest("li[data-tool]");
+    const tgt = e.target as HTMLElement | null;
+    const li = tgt ? tgt.closest<HTMLLIElement>("li[data-tool]") : null;
     if (!li) return;
-    setActive(li.dataset.tool);
+    const tool = li.dataset.tool;
+    if (tool) setActive(tool);
   });
 }
 
 // Sélection de variante route : cycle I -> L -> X au clavier (R)
 let piece = "I";
 function cyclePiece() {
+  // Only applies to road mode
   piece = piece === "I" ? "L" : piece === "L" ? "X" : "I";
-  updateCursor(true); makePreview();
+  updateCursor(true);
+  if (mode === "road") {
+    makePreview();
+    // Reposition la nouvelle preview sous le curseur au lieu du centre
+    if (lastPointerEvent) {
+      const p = screenToGround(lastPointerEvent);
+      if (p) {
+        const s = snapToCell(p);
+        updatePreviewPosition(s);
+      }
+    }
+  }
   showToast(`Route: ${piece}`);
 }
 addEventListener("keydown", (e) => {
@@ -200,7 +218,9 @@ makeCursor();
 // ====== CHARGEMENT DES GLB ======
 const gltfLoader = new GLTFLoader();
 
-const MODELS = {
+type ModelKey = "I"|"L"|"X"|"HOUSE"|"BUILDING";
+interface ModelEntry { path:string; prefab:THREE.Object3D|null; scale:THREE.Vector3; target:[number,number]; }
+const MODELS: Record<ModelKey, ModelEntry> = {
   I: { path: URL_STREET_I, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
   L: { path: URL_STREET_L, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
   X: { path: URL_STREET_X, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
@@ -208,44 +228,48 @@ const MODELS = {
   BUILDING: { path: URL_BUILDING, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] }
 };
 
-for (const key of Object.keys(MODELS)) {
-  gltfLoader.load(MODELS[key].path, (gltf) => {
-    const root = gltf.scene;
-    root.traverse(o => {
-      if (o.isMesh && o.material) {
-        o.material.metalness = 0; o.material.roughness = 1;
-        o.castShadow = o.receiveShadow = true;
+for (const key of Object.keys(MODELS) as ModelKey[]) {
+  const entry = MODELS[key];
+  gltfLoader.load(entry.path, (gltf: any) => {
+    const root: THREE.Object3D = gltf.scene as THREE.Object3D;
+    root.traverse((obj: THREE.Object3D) => {
+      const mesh = obj as THREE.Mesh;
+      if ((mesh as any).isMesh && mesh.material) {
+        const mat = mesh.material as any;
+        mat.metalness = 0; mat.roughness = 1;
+        mesh.castShadow = mesh.receiveShadow = true;
       }
     });
     const box = new THREE.Box3().setFromObject(root);
     const sz = new THREE.Vector3(); box.getSize(sz);
-
-    const [targetX, targetZ] = MODELS[key].target;
+    const [targetX, targetZ] = entry.target;
     const sX = (sz.x > 1e-6) ? targetX / sz.x : 1;
     const sZ = (sz.z > 1e-6) ? targetZ / sz.z : 1;
     const sY = 0.5 * (sX + sZ);
-
-    MODELS[key].scale.set(sX, sY, sZ);
-    MODELS[key].prefab = root;
-
+    entry.scale.set(sX, sY, sZ);
+    entry.prefab = root;
     if ((key === piece) || (key === "HOUSE" && mode === "house") || (key === "BUILDING" && mode === "building")) makePreview();
-  }, undefined, (e) => console.error("GLB load error:", key, MODELS[key].path, e));
+  }, undefined, (e) => console.error("GLB load error:", key, entry.path, e));
 }
 
 // ----- PREVIEW -----
 function makePreview() {
   if (preview) { scene.remove(preview); preview = null; }
-  const key = (mode === "house") ? "HOUSE" : (mode === "building" ? "BUILDING" : piece);
-  const M = MODELS[key]; if (!M || !M.prefab) return;
+  let key: ModelKey;
+  if (mode === "house") key = "HOUSE"; else if (mode === "building") key = "BUILDING"; else key = piece as ModelKey;
+  const M = MODELS[key];
+  if (!M || !M.prefab) return; // model pas encore chargé
   const obj = M.prefab.clone(true);
   obj.scale.copy(M.scale);
   obj.rotation.y = ANG[angleIndex];
   obj.position.y = 0.0006;
-  obj.traverse((n: any) => {
-    if (n.isMesh) {
-      const mat = n.material.clone();
+  obj.traverse((n: THREE.Object3D) => {
+    const mesh = n as THREE.Mesh;
+    if ((mesh as any).isMesh && mesh.material) {
+      const baseMat = mesh.material as THREE.Material;
+      const mat = baseMat.clone() as any;
       mat.transparent = true; mat.opacity = 0.5; mat.depthWrite = false;
-      n.material = mat;
+      mesh.material = mat;
     }
   });
   obj.userData.isPreview = true;
@@ -278,8 +302,9 @@ function removeGroundPlate(plate: any) {
 }
 
 // ----- création d’un objet placé -----
-function buildPlacedObject(kind: any) {
-  const key = (kind === "house") ? "HOUSE" : (kind === "building" ? "BUILDING" : piece);
+function buildPlacedObject(kind: string) {
+  let key: ModelKey;
+  if (kind === "house") key = "HOUSE"; else if (kind === "building") key = "BUILDING"; else key = piece as ModelKey;
   const M = MODELS[key];
   if (!M || !M.prefab) return null;
   const obj = M.prefab.clone(true);
@@ -381,12 +406,16 @@ function eraseAtPointer(event: any) {
   removeGroundPlate(root.userData?.groundPlate);
 
   scene.remove(root);
-  root.traverse(n => {
-    if (n.isMesh) {
-      n.geometry?.dispose(); if (n.material?.map) n.material.map.dispose(); n.material?.dispose?.();
+  root.traverse((n: THREE.Object3D) => {
+    const mesh = n as THREE.Mesh;
+    if ((mesh as any).isMesh) {
+      (mesh.geometry as any)?.dispose();
+      const mat: any = mesh.material;
+      if (mat?.map) mat.map.dispose();
+      mat?.dispose?.();
     }
   });
-  bag.delete(hitKey);
+  if (bag) bag.delete(hitKey as any);
   // Remboursement : route 100%, maison / building 50%
   const full = root.userData?.cost ?? 0;
   let refund = full;
