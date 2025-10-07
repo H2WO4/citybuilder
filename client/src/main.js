@@ -4,12 +4,15 @@ import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import Stats from "three/examples/jsm/libs/stats.module.js";
 
+// const MODEL_PATH = "../texture_models"
+
+
 // URLs des modèles (résolution Vite/ESM, évite le retour d'index.html)
-import URL_STREET_I   from "../texture_models/Street_Straight.glb?url";
-import URL_STREET_L   from "../texture_models/Street_Turn.glb?url";
-import URL_STREET_X   from "../texture_models/Cross_walk.glb?url";
-import URL_HOUSE      from "../texture_models/House.glb?url";
-import URL_BUILDING   from "../texture_models/Building.glb?url";
+import URL_STREET_I   from `./texture_models/Roads/Street_Straight.glb?url`;
+import URL_STREET_L   from `./texture_models/Roads/Street_Turn.glb?url`;
+import URL_STREET_X   from `./texture_models/Roads/Cross_walk.glb?url`;
+import URL_HOUSE      from `./texture_models/Buildings/House.glb?url`;
+import URL_BUILDING   from `./texture_models/Buildings/Building.glb?url`;
 
 // ----- paramètres -----
 const TILE_SIZE = 2;
