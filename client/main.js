@@ -43,24 +43,14 @@ stats.dom.style.display = "none"; // mesure sans afficher le panneau par défaut
 document.body.appendChild(stats.dom);
 
 const fpsHud = document.createElement("div");
-Object.assign(fpsHud.style, {
-  position:"fixed", top:"12px", left:"50%", transform:"translateX(-50%)",
-  padding:"8px 12px", border:"2px solid #222", borderRadius:"10px",
-  background:"rgba(255,255,255,0.9)", fontFamily:"system-ui, sans-serif",
-  fontSize:"16px", color:"#111", boxShadow:"0 2px 8px rgba(0,0,0,0.15)",
-  pointerEvents:"none", zIndex:"10000"
-});
 fpsHud.textContent = "— FPS";
-fpsHud.className = "ui";
+fpsHud.className = "ui panel fps-hud";
 document.body.appendChild(fpsHud);
 
 // ===== HUD Argent =====
 let money = 200000;
 const hud = document.createElement("div");
-Object.assign(hud.style,{position:"fixed",top:"12px",right:"12px",padding:"8px 12px",border:"2px solid #222",
-  borderRadius:"10px",background:"rgba(255,255,255,0.9)",fontFamily:"system-ui, sans-serif",fontSize:"16px",
-  color:"#111",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",pointerEvents:"auto"});
-hud.className = "ui";
+hud.className = "ui panel money-hud";
 document.body.appendChild(hud);
 const fmtEUR = new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0});
 function renderMoney(){ hud.textContent = fmtEUR.format(money); }
@@ -68,15 +58,11 @@ renderMoney();
 
 // ===== Toolbar + sous-menu =====
 const bar = document.createElement("div");
-Object.assign(bar.style,{position:"fixed",top:"12px",left:"12px",display:"flex",gap:"8px",
-  background:"rgba(255,255,255,0.9)",border:"2px solid #222",borderRadius:"10px",padding:"6px",
-  fontFamily:"system-ui,sans-serif",userSelect:"none",pointerEvents:"auto"});
-bar.className = "ui";
+bar.className = "ui toolbar";
 document.body.appendChild(bar);
 function makeBtn(label,title){
   const b=document.createElement("button"); b.type="button"; b.textContent=label; b.title=title;
-  Object.assign(b.style,{padding:"6px 10px",border:"1px solid #333",borderRadius:"8px",background:"#fff",
-    cursor:"pointer",fontSize:"14px",minWidth:"44px",lineHeight:"1"});
+  b.className = "tool-btn";
   b.onmouseenter=()=>b.style.background="#f2f2f2";
   b.onmouseleave =()=>b.style.background=(b.dataset.active==="1")?"#dde8ff":"#fff";
   return b;
@@ -89,6 +75,8 @@ bar.append(btnPan, btnRoad, btnBulld);
 let mode="pan";
 let cursor = null;
 let preview = null;
+
+
 
 function setActive(m){
   mode=m;
@@ -105,15 +93,11 @@ btnBulld.onclick = ()=> setActive("bulldozer");
 
 // Sous-menu
 const sub = document.createElement("div");
-Object.assign(sub.style,{position:"fixed",top:"54px",left:"12px",display:"none",gap:"6px",
-  background:"rgba(255,255,255,0.98)",border:"2px solid #222",borderRadius:"10px",padding:"6px",
-  boxShadow:"0 4px 12px rgba(0,0,0,.2)",pointerEvents:"auto"});
-sub.className = "ui";
+sub.className = "ui sub-menu";
 document.body.appendChild(sub);
 function makeMini(label, title, onClick){
-  const b=document.createElement("button"); b.textContent=label; b.title=title; b.type="button";
-  Object.assign(b.style,{padding:"6px 8px",border:"1px solid #333",borderRadius:"8px",background:"#fff",
-    cursor:"pointer",fontSize:"14px",minWidth:"36px"}); b.onclick=onClick; return b;
+  const b=document.createElement("button"); b.textContent=label; b.title=title; b.type="button"; b.onclick=onClick;
+  b.className = "mini-btn"; return b;
 }
 let piece = "I";
 const miniI = makeMini("I","Ligne droite", ()=>{ piece="I"; updateCursor(true); makePreview(); setActive("road"); });
