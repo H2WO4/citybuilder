@@ -132,11 +132,17 @@ controls.mouseButtons.LEFT=null; controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
 controls.addEventListener("change",()=> camera.position.y=Math.max(camera.position.y,1));
 
 // ----- grille + sol -----
-const grid = new THREE.GridHelper(GRID_VIS_SIZE, GRID_VIS_SIZE / TILE_SIZE, 0x000000, 0x000000);
+// Une case de grille = 1 cellule (3x3 tiles)
+const grid = new THREE.GridHelper(GRID_VIS_SIZE, GRID_VIS_SIZE / CELL, 0x000000, 0x000000);
 grid.material.transparent=true; grid.material.opacity=0.35; grid.material.depthWrite=false; grid.renderOrder=1; scene.add(grid);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(4096,4096), new THREE.MeshBasicMaterial({color:0x55aa55}));
 ground.rotation.x=-Math.PI/2; ground.position.y=-0.002; scene.add(ground);
-function updateGrid(){ const gx=Math.round(camera.position.x/TILE_SIZE)*TILE_SIZE; const gz=Math.round(camera.position.z/TILE_SIZE)*TILE_SIZE; grid.position.set(gx,0,gz); }
+// centre la grille par pas de cellule
+function updateGrid(){
+  const gx = Math.round(camera.position.x / CELL) * CELL;
+  const gz = Math.round(camera.position.z / CELL) * CELL;
+  grid.position.set(gx,0,gz);
+}
 
 // ----- Raycast & snap -----
 const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -146,17 +152,10 @@ function screenToGround(e){ mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clie
   return raycaster.ray.intersectPlane(groundPlane,p)?p.clone():null; }
 function overUI(e){ return !!(e && e.target && e.target.closest(".ui")); }
 
-// --- Snap footprint 3x3 ---
-function footprintTiles(){ return [3,3]; }
-function snapAxis(v, isEven){
-  if (isEven) return Math.round(v / TILE_SIZE) * TILE_SIZE;
-  return Math.floor(v / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
-}
-function snapFootprint(worldVec3){
-  let [tx, tz] = footprintTiles();
-  if ((angleIndex & 1) === 1) [tx, tz] = [tz, tx];
-  const x = snapAxis(worldVec3.x, (tx % 2) === 0);
-  const z = snapAxis(worldVec3.z, (tz % 2) === 0);
+// --- Snap sur cellule entière ---
+function snapToCell(v){
+  const x = Math.round(v.x / CELL) * CELL;
+  const z = Math.round(v.z / CELL) * CELL;
   return new THREE.Vector3(x, 0, z);
 }
 
@@ -170,7 +169,7 @@ addEventListener("keydown",(e)=>{
 });
 
 // ----- curseur -----
-const GEO_PLACEMENT = new THREE.PlaneGeometry(3*TILE_SIZE, 3*TILE_SIZE).rotateX(-Math.PI/2);
+const GEO_PLACEMENT = new THREE.PlaneGeometry(CELL, CELL).rotateX(-Math.PI/2); // taille d'une cellule
 function makeCursor(){
   if (cursor) scene.remove(cursor);
   const geo = GEO_PLACEMENT.clone();
@@ -372,7 +371,7 @@ addEventListener("pointermove", e=>{
   lastPointerEvent = e;
   if (overUI(e)) { if(cursor) cursor.visible=false; if(preview) preview.visible=false; return; }
   const p=screenToGround(e); if(!p){ if(cursor) cursor.visible=false; if(preview) preview.visible=false; return; }
-  const s=snapFootprint(p);
+  const s=snapToCell(p);
   if(cursor){ cursor.visible=(mode!=="pan"); cursor.position.set(s.x,0.001,s.z); }
   if(preview){ preview.visible = (mode==="road"||mode==="house"||mode==="building"); updatePreviewPosition(s); updatePreviewRotation(); }
   if(mode==="road" && painting)      placeRoad(s.x,s.z);
@@ -385,7 +384,7 @@ addEventListener("pointerdown", e=>{
   if (overUI(e)) return;
   if(e.button===0){
     if(mode==="road"||mode==="house"||mode==="building"){
-      const p=screenToGround(e); if(!p) return; const s=snapFootprint(p);
+      const p=screenToGround(e); if(!p) return; const s=snapToCell(p);
       painting=true;
       let ok=false;
       if(mode==="road")      ok = placeRoad(s.x,s.z);
