@@ -79,6 +79,124 @@ function showToast(msg: any) {
   toastT = setTimeout(() => toast.style.opacity = "0", 1200);
 }
 
+// ----- POPUPS MONETAIRES (stack + agrégation remboursements) -----
+interface MoneyPopupAggregate { amount:number; element:HTMLDivElement; timeout:any; lastTime:number; }
+const moneyPopupContainer = document.createElement('div');
+moneyPopupContainer.style.position = 'fixed';
+moneyPopupContainer.style.top = '60px';
+moneyPopupContainer.style.right = '14px';
+moneyPopupContainer.style.display = 'flex';
+moneyPopupContainer.style.flexDirection = 'column';
+moneyPopupContainer.style.alignItems = 'flex-end';
+moneyPopupContainer.style.gap = '4px';
+moneyPopupContainer.style.zIndex = '10002';
+document.body.appendChild(moneyPopupContainer);
+
+const REFUND_AGG_WINDOW = 450; // ms pour grouper plusieurs remboursements rapides
+let refundAggregate: MoneyPopupAggregate | null = null;
+const SPEND_AGG_WINDOW = 450;  // ms pour grouper plusieurs dépenses rapides
+let spendAggregate: MoneyPopupAggregate | null = null;
+
+function createMoneyPopup(text:string, color:string, key:string, pulse:boolean=false){
+  const div = document.createElement('div');
+  div.className = 'ui money-float';
+  Object.assign(div.style, {
+    background:'rgba(255,255,255,0.95)',
+    color,
+    fontWeight:'600',
+    padding:'4px 10px',
+    fontFamily:'system-ui, sans-serif',
+    fontSize:'14px',
+    borderRadius:'8px',
+    boxShadow:'0 2px 8px rgba(0,0,0,0.15)',
+    pointerEvents:'none',
+    opacity:'0',
+    transform:'translateY(-6px)',
+    transition:'opacity .25s, transform .4s',
+    position:'relative',
+    minWidth:'80px',
+    textAlign:'right'
+  });
+  div.dataset.kind = key;
+  div.textContent = text;
+  moneyPopupContainer.appendChild(div);
+  requestAnimationFrame(()=>{
+    div.style.opacity='1';
+    div.style.transform='translateY(0)';
+    if(pulse){
+      div.animate([
+        { transform:'translateY(0) scale(1.0)' },
+        { transform:'translateY(0) scale(1.07)' },
+        { transform:'translateY(0) scale(1.0)' }
+      ], { duration:260, easing:'ease-out' });
+    }
+  });
+  setTimeout(()=>{
+    div.style.opacity='0';
+    div.style.transform='translateY(-6px)';
+    setTimeout(()=> div.remove(), 400);
+  }, 1500);
+  return div;
+}
+
+function showRefund(amount:number){
+  const now = performance.now();
+  if(refundAggregate && (now - refundAggregate.lastTime) < REFUND_AGG_WINDOW){
+    refundAggregate.amount += amount;
+    refundAggregate.lastTime = now;
+    refundAggregate.element.textContent = '+'+fmtEUR.format(refundAggregate.amount);
+    refundAggregate.element.style.color = '#0f7d1f';
+    refundAggregate.element.animate([
+      { transform:'translateY(0) scale(1.0)' },
+      { transform:'translateY(0) scale(1.1)' },
+      { transform:'translateY(0) scale(1.0)' }
+    ], { duration:300, easing:'ease-out' });
+    clearTimeout(refundAggregate.timeout);
+    refundAggregate.timeout = setTimeout(()=>{
+      const el = refundAggregate?.element; if(el){ el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); }
+      refundAggregate = null;
+    }, 1500);
+    return;
+  }
+  // créer un nouveau popup agrégé
+  const el = createMoneyPopup('+'+fmtEUR.format(amount), '#0f7d1f', 'refund', true);
+  refundAggregate = {
+    amount,
+    element: el,
+    lastTime: now,
+    timeout: setTimeout(()=>{
+      el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); refundAggregate=null; }, 1500)
+  };
+}
+
+function showSpend(amount:number){
+  const now = performance.now();
+  if(spendAggregate && (now - spendAggregate.lastTime) < SPEND_AGG_WINDOW){
+    spendAggregate.amount += amount;
+    spendAggregate.lastTime = now;
+    spendAggregate.element.textContent = '-'+fmtEUR.format(spendAggregate.amount);
+    spendAggregate.element.style.color = '#b51212';
+    spendAggregate.element.animate([
+      { transform:'translateY(0) scale(1.0)' },
+      { transform:'translateY(0) scale(1.1)' },
+      { transform:'translateY(0) scale(1.0)' }
+    ], { duration:300, easing:'ease-out' });
+    clearTimeout(spendAggregate.timeout);
+    spendAggregate.timeout = setTimeout(()=>{
+      const el = spendAggregate?.element; if(el){ el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); }
+      spendAggregate = null;
+    }, 1500);
+    return;
+  }
+  const el = createMoneyPopup('-'+fmtEUR.format(amount), '#b51212', 'spend', true);
+  spendAggregate = {
+    amount,
+    element: el,
+    lastTime: now,
+    timeout: setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); spendAggregate=null; }, 1500)
+  };
+}
+
 // ===== HUD Argent =====
 let money = 200000;
 const hud = document.createElement("div");
@@ -111,10 +229,32 @@ function setActive(m: any) {
   document.body.style.cursor = (m === "road" || m === "house" || m === "building") ? "crosshair" : m === "bulldozer" ? "not-allowed" : "default";
   if (typeof grid !== "undefined") grid.visible = (m !== "pan");
 
+  // Adapter la couleur du curseur selon le mode
+  if (cursor && (cursor.material as any)) {
+    const mat = cursor.material as THREE.MeshBasicMaterial;
+    if (m === "bulldozer") {
+      mat.color.set(0xff0000); mat.opacity = 0.35;
+    } else if (m === "road" || m === "house" || m === "building") {
+      mat.color.set(0xffff00); mat.opacity = 0.25;
+    } else {
+      mat.color.set(0xffff00); mat.opacity = 0.20;
+    }
+    mat.transparent = true;
+  }
+
   // For build modes always recreate preview to ensure correct model (fix house showing road)
   if (m === "road" || m === "house" || m === "building") {
     makePreview();
     if (preview) preview.visible = !overUI(lastPointerEvent);
+  } else if (m === "bulldozer") {
+    // créer une "preview" rouge simple pour feedback (carré rouge sur la cellule)
+    if (preview) { scene.remove(preview); preview = null; }
+    const geo = GEO_PLACEMENT.clone();
+    const mat = new THREE.MeshBasicMaterial({ color:0xff0000, transparent:true, opacity:0.25 });
+    const plate = new THREE.Mesh(geo, mat);
+    plate.position.y = 0.0006;
+    preview = plate;
+    scene.add(preview);
   } else {
     if (preview) preview.visible = false;
   }
@@ -154,6 +294,20 @@ function cyclePiece() {
 }
 addEventListener("keydown", (e) => {
   if ((e.key === 'r' || e.key === 'R') && mode === 'road') { e.preventDefault(); cyclePiece(); }
+});
+
+// Raccourci clavier bulldozer (X) : toggle entre bulldozer et pan
+addEventListener("keydown", (e) => {
+  if (e.key === 'x' || e.key === 'X') {
+    e.preventDefault();
+    if (mode === 'bulldozer') {
+      setActive('pan');
+      showToast('Bulldozer désactivé');
+    } else {
+      setActive('bulldozer');
+      showToast('Bulldozer actif');
+    }
+  }
 });
 
 // ----- contrôles -----
@@ -346,7 +500,7 @@ function placeRoad(wx: any, wz: any) {
   obj.position.set(wx, 0.0005, wz);
   scene.add(obj);
   roads.set(id, obj);
-  money -= ROAD_COST; renderMoney();
+  money -= ROAD_COST; renderMoney(); showSpend(ROAD_COST);
   lastPlaceError = "";
   return true;
 }
@@ -363,7 +517,7 @@ function placeHouse(wx: any, wz: any) {
   obj.position.set(wx, 0.0005, wz);
   scene.add(obj);
   houses.set(id, obj);
-  money -= HOUSE_COST; renderMoney();
+  money -= HOUSE_COST; renderMoney(); showSpend(HOUSE_COST);
   lastPlaceError = "";
   return true;
 }
@@ -380,7 +534,7 @@ function placeBuilding(wx: any, wz: any) {
   obj.position.set(wx, 0.0005, wz);
   scene.add(obj);
   buildings.set(id, obj);
-  money -= BUILDING_COST; renderMoney();
+  money -= BUILDING_COST; renderMoney(); showSpend(BUILDING_COST);
   lastPlaceError = "";
   return true;
 }
@@ -423,6 +577,7 @@ function eraseAtPointer(event: any) {
     refund = Math.round(full * 0.5);
   }
   money += refund; renderMoney();
+  if (refund > 0) showRefund(refund);
 }
 
 // ----- interactions -----
@@ -444,7 +599,15 @@ addEventListener("pointermove", e => {
   const p = screenToGround(e); if (!p) { if (cursor) cursor.visible = false; if (preview) preview.visible = false; return; }
   const s = snapToCell(p);
   if (cursor) { cursor.visible = (mode !== "pan"); cursor.position.set(s.x, 0.001, s.z); }
-  if (preview) { preview.visible = (mode === "road" || mode === "house" || mode === "building"); updatePreviewPosition(s); updatePreviewRotation(); }
+  if (preview) {
+    if (mode === "road" || mode === "house" || mode === "building" || mode === 'bulldozer') {
+      preview.visible = true;
+      updatePreviewPosition(s);
+      if (mode !== 'bulldozer') updatePreviewRotation();
+    } else {
+      preview.visible = false;
+    }
+  }
   if (mode === "road" && painting) placeRoad(s.x, s.z);
   if (mode === "house" && painting) placeHouse(s.x, s.z);
   if (mode === "building" && painting) placeBuilding(s.x, s.z);
