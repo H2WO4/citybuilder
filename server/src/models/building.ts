@@ -8,14 +8,21 @@ const Building = new Schema({
     y: Number,
   },
 
-  orientation: ["n", "s", "e", "w"],
-  type: [
-    "residential",
-    "commercial",
-    "industry",
-    "entertainment",
-    "services"
-  ],
+  orientation: {
+    type: String,
+    enum: ["n", "s", "e", "w"]
+  },
+  type: {
+    type: String,
+    enum: [
+      "residential",
+      "commercial",
+      "industry",
+      "entertainment",
+      "services"
+    ]
+  },
+
 }, { versionKey: false })
 
 export const Buildings = model("Building", Building)

@@ -11,6 +11,7 @@ mongoose.connect("mongodb://127.0.0.1:27017/main")
   .then(() => console.log('Connected!'));
 
 // Use routes
+require("./routes/buildings.ts").init()
 require("./routes/cities.ts").init()
 
 // Start server

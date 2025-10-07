@@ -1,11 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/LucasPickering/slumber/refs/tags/v4.0.1/schemas/collection.json
-# ^ This enables schema validation and autocomplete in your editor
-# https://github.com/redhat-developer/yaml-language-server
-
-# For basic usage info, see:
-# https://slumber.lucaspickering.me/getting_started.html
-# For all collection options, see:
-# https://slumber.lucaspickering.me/api/request_collection/index.html
 
 name: Server
 
@@ -34,10 +27,18 @@ requests:
           type: json
           data:
             name: "{{ prompt(message='Name') }}"
-      c_get_by_name:
-        name: Get by Name
-        method: GET
-        url: "{{ host }}/cities/{{ prompt(message='Name') }}"
+      c_update_one:
+        name: Patch One
+        method: PATCH
+        url: "{{ host }}/cities/{{ city_id }}"
+        body:
+          type: json
+          data:
+            name: "{{ prompt(message='Name') }}"
+      c_delete_by_id:
+        name: Delete by ID
+        method: DELETE
+        url: "{{ host }}/cities/{{ city_id }}"
   buildings:
     name: Buildings
     requests:
@@ -45,3 +46,16 @@ requests:
         name: Get All from City
         method: GET
         url: "{{ host }}/buildings/{{ city_id }}"
+      b_post_one:
+        name: Post One
+        method: POST
+        url: "{{ host }}/buildings"
+        body:
+          type: json
+          data:
+            city: "{{ city_id }}"
+            position:
+              x: "{{ prompt(message='X Coordinate') | integer() }}"
+              y: "{{ prompt(message='Y Coordinate') | integer() }}"
+            orientation: "{{ select(['n', 's', 'e', 'w'], message='Orientation') }}"
+            type: "{{ select(['residential', 'commercial', 'industry', 'entertainment', 'services'], message='Type') }}"

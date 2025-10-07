@@ -6,7 +6,8 @@ import { Cities } from '../models/city';
 export function init() {
   APP.get("/cities", get_all)
   APP.post("/cities", post_one)
-  APP.get("/cities/:name", get_by_name)
+  APP.patch("/cities/:id", patch_one)
+  APP.delete("/cities/:id", delete_by_id)
 }
 
 async function get_all(_: Request, res: Response) {
@@ -26,27 +27,49 @@ async function post_one(req: Request, res: Response) {
     res
       .status(201)
       .json(result)
-  } catch (_) {
+  } catch (e) {
+    console.log(e)
+
     res
       .status(400)
       .send("invalid arguments")
   }
 }
 
-async function get_by_name(req: Request, res: Response) {
-  let name = req.params.name
+
+async function patch_one(req: Request, res: Response) {
+  let id = req.params.id
+  let name = req.body.name
 
   try {
-    let result = await Cities.findOne({ name })
+    let result = await Cities.findOneAndUpdate({ _id: id }, { name })
 
     res
-      .status(200)
+      .status(201)
       .json(result)
-  } catch (_) {
+  } catch (e) {
+    console.log(e)
+
+    res
+      .status(400)
+      .send("invalid arguments")
+  }
+}
+
+async function delete_by_id(req: Request, res: Response) {
+  let id = req.params.id
+
+  try {
+    await Cities.findByIdAndDelete(id)
+
+    res
+      .status(204)
+      .send()
+  } catch (e) {
+    console.log(e)
+
     res
       .status(404)
       .send("not found")
   }
-
 }
-
