@@ -1,0 +1,279 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+/* Base layout */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Poppins', sans-serif;
+}
+
+body {
+  background: #55aa55;
+}
+
+canvas {
+  display: block;
+}
+
+/* Generic UI container */
+.ui {
+  pointer-events: auto;
+  font-family: inherit;
+}
+
+.panel {
+  position: fixed;
+  padding: 8px 12px;
+  border: 2px solid #222;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
+  color: #111;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  user-select: none;
+}
+
+.money-hud {
+  top: 12px;
+  right: 12px;
+}
+
+.fps-hud {
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Toolbar */
+.toolbar {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #222;
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.toolbar .tool-btn {
+  padding: 6px 10px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  min-width: 44px;
+  line-height: 1;
+  transition: background .15s;
+}
+
+.toolbar .tool-btn:hover {
+  background: #f2f2f2;
+}
+
+.toolbar .tool-btn[data-active="1"] {
+  background: #dde8ff;
+}
+
+/* Sub menu */
+.sub-menu {
+  position: fixed;
+  top: 54px;
+  left: 12px;
+  display: none;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 2px solid #222;
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .2);
+}
+
+.sub-menu .mini-btn {
+  padding: 6px 8px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  min-width: 36px;
+  transition: background .15s;
+}
+
+.sub-menu .mini-btn:hover {
+  background: #f2f2f2;
+}
+
+/* Floating action menu (optional) */
+.action {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
+  font-size: 34px;
+  user-select: none;
+}
+
+.action span {
+  pointer-events: none;
+}
+
+/* (supprimé : ancienne ouverture verticale) */
+.action ul li {
+  white-space: nowrap;
+  font-size: 14px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.action ul li:hover {
+  background: #f2f2f2;
+}
+
+/* Utility */
+.noselect {
+  user-select: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Scrollbar styling for menus if needed */
+.sub-menu::-webkit-scrollbar,
+.action ul::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sub-menu::-webkit-scrollbar-track,
+.action ul::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sub-menu::-webkit-scrollbar-thumb,
+.action ul::-webkit-scrollbar-thumb {
+  background: #bbb;
+  border-radius: 3px;
+}
+
+.action {
+  position: fixed;
+  bottom: 50px;
+  left: 50px;
+  width: 50px;
+  height: 50px;
+  background: #c53d3d00;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 5px 5px rgba(255, 255, 255, 0);
+}
+
+.action span {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #ffffff;
+  font-size: 2em;
+  transition: .3s ease-in-out;
+}
+
+.action.active span {
+  transform: rotate(135deg);
+}
+
+.action ul {
+  list-style: none;
+  margin: 0;
+  color: #000000da;
+  padding: 14px 16px;
+  position: absolute;
+  top: 0;
+  left: 70px;
+  background: #fdfdfd;
+  min-width: 220px;
+  border: 2px solid #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-10px) scale(.95);
+  transform-origin: left center;
+  transition: opacity .25s ease, transform .25s ease;
+  display: flex;
+  flex-direction: column;
+
+}
+
+.action.active ul {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0) scale(1);
+}
+
+.action ul li {
+  list-style: none;
+  text-decoration: none;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 7px 0;
+}
+
+.action ul li:hover {
+  font-weight: 600;
+}
+
+.action ul li:not(:last-child) {
+  border-bottom: 1p x solid rgba(0, 0, 0, 0);
+}
+
+.action ul li img {
+  margin-right: 15px;
+  opacity: .2;
+  transform: scale(.7);
+}
+
+.action ul li:hover img {
+  opacity: .8;
+  transform: scale(1.0);
+}
+
+
+/* Dynamic flip helpers mis à jour pour ouverture horizontale */
+.action.flip-x ul {
+  left: auto;
+  right: 70px;
+  transform-origin: right center;
+}
+
+/* flip-y conservé (si futur usage vertical) */
+.action.flip-y ul {
+  top: auto;
+  bottom: 0;
+}
+
+.action.flip-x.flip-y ul {
+  left: auto;
+  right: 70px;
+}
