@@ -10,7 +10,10 @@ const MIN_ZOOM = 0.4, MAX_ZOOM = 6;
 let viewSize = 40;
 const ROAD_W = 3 * TILE_SIZE;
 const ROAD_L = 3 * TILE_SIZE;
+const CELL = 3 * TILE_SIZE;
 const ROAD_COST = 200;
+const HOUSE_COST = 1200;
+const BUILDING_COST = 5000; // NEW
 
 // ----- scène -----
 const scene = new THREE.Scene();
@@ -36,10 +39,10 @@ renderer.setClearColor(0x55aa55);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
-// ----- stats + HUD FPS (même style UI) -----
+// ----- stats + HUD FPS -----
 const stats = new Stats();
 stats.showPanel(0);
-stats.dom.style.display = "none"; // mesure sans afficher le panneau par défaut
+stats.dom.style.display = "none";
 document.body.appendChild(stats.dom);
 
 const fpsHud = document.createElement("div");
@@ -53,6 +56,25 @@ Object.assign(fpsHud.style, {
 fpsHud.textContent = "— FPS";
 fpsHud.className = "ui";
 document.body.appendChild(fpsHud);
+
+// ===== petit toast =====
+const toast = document.createElement("div");
+Object.assign(toast.style, {
+  position:"fixed", top:"64px", left:"50%", transform:"translateX(-50%)",
+  padding:"6px 10px", border:"1px solid #222", borderRadius:"8px",
+  background:"rgba(255,255,255,0.95)", fontFamily:"system-ui, sans-serif",
+  fontSize:"14px", color:"#111", boxShadow:"0 2px 8px rgba(0,0,0,0.15)",
+  pointerEvents:"none", zIndex:"10000", opacity:"0", transition:"opacity .15s"
+});
+toast.className = "ui";
+document.body.appendChild(toast);
+let toastT=null;
+function showToast(msg){
+  toast.textContent = msg;
+  toast.style.opacity = "1";
+  clearTimeout(toastT);
+  toastT = setTimeout(()=> toast.style.opacity="0", 1200);
+}
 
 // ===== HUD Argent =====
 let money = 200000;
@@ -68,10 +90,11 @@ renderMoney();
 
 // ===== Toolbar + sous-menu =====
 const bar = document.createElement("div");
-Object.assign(bar.style,{position:"fixed",top:"12px",left:"12px",display:"flex",gap:"8px",
-  background:"rgba(255,255,255,0.9)",border:"2px solid #222",borderRadius:"10px",padding:"6px",
-  fontFamily:"system-ui,sans-serif",userSelect:"none",pointerEvents:"auto"});
-bar.className = "ui";
+Object.assign(bar.style,{
+  position:"fixed", top:"12px", left:"12px", display:"flex", gap:"8px",
+  background:"rgba(255,255,255,0.9)", border:"2px solid #222", borderRadius:"10px", padding:"6px",
+  fontFamily:"system-ui,sans-serif", userSelect:"none", pointerEvents:"auto"
+});
 document.body.appendChild(bar);
 function makeBtn(label,title){
   const b=document.createElement("button"); b.type="button"; b.textContent=label; b.title=title;
@@ -81,10 +104,12 @@ function makeBtn(label,title){
   b.onmouseleave =()=>b.style.background=(b.dataset.active==="1")?"#dde8ff":"#fff";
   return b;
 }
-const btnPan=makeBtn("🖐️","Navigation");
-const btnRoad=makeBtn("🛣️","Poser des routes");
-const btnBulld=makeBtn("🪓","Bulldozer");
-bar.append(btnPan, btnRoad, btnBulld);
+const btnPan   = makeBtn("🖐️","Navigation");
+const btnRoad  = makeBtn("🛣️","Poser des routes");
+const btnHouse = makeBtn("🏠","Construire une maison");
+const btnBuild = makeBtn("🏢","Construire un building"); // NEW
+const btnBulld = makeBtn("🪓","Bulldozer");
+bar.append(btnPan, btnRoad, btnHouse, btnBuild, btnBulld); // CHANGED
 
 let mode="pan";
 let cursor = null;
@@ -92,18 +117,20 @@ let preview = null;
 
 function setActive(m){
   mode=m;
-  for (const b of [btnPan,btnRoad,btnBulld]){ b.dataset.active="0"; b.style.background="#fff"; }
-  ({pan:btnPan,road:btnRoad,bulldozer:btnBulld}[m]).dataset.active="1";
-  ({pan:btnPan,road:btnRoad,bulldozer:btnBulld}[m]).style.background="#dde8ff";
-  document.body.style.cursor = m==="road"?"crosshair":m==="bulldozer"?"not-allowed":"default";
+  for (const b of [btnPan,btnRoad,btnHouse,btnBuild,btnBulld]){ b.dataset.active="0"; b.style.background="#fff"; }
+  ({pan:btnPan,road:btnRoad,house:btnHouse,building:btnBuild,bulldozer:btnBulld}[m]).dataset.active="1";
+  ({pan:btnPan,road:btnRoad,house:btnHouse,building:btnBuild,bulldozer:btnBulld}[m]).style.background="#dde8ff";
+  document.body.style.cursor = (m==="road"||m==="house"||m==="building")?"crosshair":m==="bulldozer"?"not-allowed":"default";
   if (typeof grid !== "undefined") grid.visible = (m !== "pan");
-  if (preview) preview.visible = (m==="road" && !overUI(lastPointerEvent));
+  if (preview) preview.visible = ((m==="road"||m==="house"||m==="building") && !overUI(lastPointerEvent));
 }
-btnPan.onclick = ()=> setActive("pan");
-btnRoad.onclick = ()=> setActive("road");
+btnPan.onclick   = ()=> setActive("pan");
+btnRoad.onclick  = ()=> { setActive("road"); makePreview(); };
+btnHouse.onclick = ()=> { setActive("house"); makePreview(); };
+btnBuild.onclick = ()=> { setActive("building"); makePreview(); }; // NEW
 btnBulld.onclick = ()=> setActive("bulldozer");
 
-// Sous-menu
+// Sous-menu routes uniquement
 const sub = document.createElement("div");
 Object.assign(sub.style,{position:"fixed",top:"54px",left:"12px",display:"none",gap:"6px",
   background:"rgba(255,255,255,0.98)",border:"2px solid #222",borderRadius:"10px",padding:"6px",
@@ -163,17 +190,16 @@ function snapFootprint(worldVec3){
 let angleIndex = 0;
 const ANG = [0, Math.PI/2, Math.PI, -Math.PI/2];
 addEventListener("keydown",(e)=>{
-  if((e.key==="a"||e.key==="A")&&mode==="road"){
+  if((e.key==="a"||e.key==="A") && (mode==="road"||mode==="house"||mode==="building")){
     e.preventDefault(); angleIndex=(angleIndex+1)&3; updateCursorOrient(); updatePreviewRotation();
   }
 });
 
 // ----- curseur -----
-const GEO_I = new THREE.PlaneGeometry(3*TILE_SIZE, 3*TILE_SIZE).rotateX(-Math.PI/2);
-const GEO_S = new THREE.PlaneGeometry(3*TILE_SIZE, 3*TILE_SIZE).rotateX(-Math.PI/2);
+const GEO_PLACEMENT = new THREE.PlaneGeometry(3*TILE_SIZE, 3*TILE_SIZE).rotateX(-Math.PI/2);
 function makeCursor(){
   if (cursor) scene.remove(cursor);
-  const geo = (piece==="I") ? GEO_I.clone() : GEO_S.clone();
+  const geo = GEO_PLACEMENT.clone();
   cursor = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color:0xffff00, transparent:true, opacity:0.25 }));
   cursor.position.y = 0.001; cursor.visible=false; scene.add(cursor);
 }
@@ -181,29 +207,44 @@ function updateCursor(resizeOnly=false){ if(!cursor||resizeOnly) makeCursor(); u
 function updateCursorOrient(){ if(cursor) cursor.rotation.y = ANG[angleIndex]; }
 makeCursor();
 
-// ====== CHARGEMENT DES 3 GLB ======
+// ====== CHARGEMENT DES GLB (X/Z = 3×3, Y auto) ======
 const gltfLoader = new GLTFLoader();
 const MODELS = {
-  I: { path:"./texture_models/Street_Straight.glb", prefab:null, scale:new THREE.Vector3(), target:[3*TILE_SIZE, 3*TILE_SIZE] },
-  L: { path:"./texture_models/Street_Turn.glb",    prefab:null, scale:new THREE.Vector3(), target:[3*TILE_SIZE, 3*TILE_SIZE] },
-  X: { path:"./texture_models/Cross_walk.glb",     prefab:null, scale:new THREE.Vector3(), target:[3*TILE_SIZE, 3*TILE_SIZE] },
+  I:        { path:"./texture_models/Street_Straight.glb", prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] },
+  L:        { path:"./texture_models/Street_Turn.glb",     prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] },
+  X:        { path:"./texture_models/Cross_walk.glb",      prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] },
+  HOUSE:    { path:"./texture_models/House.glb",           prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] },
+  BUILDING: { path:"./texture_models/Building.glb",        prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] }, // NEW
 };
 for (const key of Object.keys(MODELS)){
   gltfLoader.load(MODELS[key].path,(gltf)=>{
     const root=gltf.scene;
-    root.traverse(o=>{ if(o.isMesh&&o.material){ o.material.metalness=0; o.material.roughness=1; o.castShadow=o.receiveShadow=true; }});
-    const box=new THREE.Box3().setFromObject(root); const sz=new THREE.Vector3(); box.getSize(sz);
+    root.traverse(o=>{
+      if(o.isMesh&&o.material){
+        o.material.metalness=0; o.material.roughness=1;
+        o.castShadow=o.receiveShadow=true;
+      }
+    });
+    const box=new THREE.Box3().setFromObject(root);
+    const sz=new THREE.Vector3(); box.getSize(sz);
+
     const targetX = MODELS[key].target[0], targetZ = MODELS[key].target[1];
-    MODELS[key].scale.set(targetX/(sz.x||1), 1, targetZ/(sz.z||1));
+    const sX = (sz.x>1e-6)? targetX/sz.x : 1;
+    const sZ = (sz.z>1e-6)? targetZ/sz.z : 1;
+    const sY = 0.5*(sX+sZ);              // hauteur auto basée sur X/Z
+
+    MODELS[key].scale.set(sX, sY, sZ);
     MODELS[key].prefab = root;
-    if (key === piece) makePreview();
+
+    if ((key === piece) || (key === "HOUSE" && mode==="house") || (key==="BUILDING" && mode==="building")) makePreview();
   },undefined,(e)=>console.error("GLB load error:",key,e));
 }
 
 // ----- PREVIEW (ghost) -----
 function makePreview(){
   if (preview){ scene.remove(preview); preview = null; }
-  const M = MODELS[piece]; if (!M.prefab) return;
+  const key = (mode==="house") ? "HOUSE" : (mode==="building" ? "BUILDING" : piece);
+  const M = MODELS[key]; if (!M || !M.prefab) return;
   const obj = M.prefab.clone(true);
   obj.scale.copy(M.scale);
   obj.rotation.y = ANG[angleIndex];
@@ -216,52 +257,139 @@ function makePreview(){
     }
   });
   obj.userData.isPreview = true;
-  obj.visible = (mode==="road");
+  obj.visible = (mode==="road"||mode==="house"||mode==="building");
   preview = obj;
   scene.add(preview);
 }
 function updatePreviewRotation(){ if(preview) preview.rotation.y = ANG[angleIndex]; }
 function updatePreviewPosition(pos){ if(preview){ preview.position.set(pos.x, 0.0006, pos.z); } }
 
-// ----- création d’une tuile route -----
-function buildRoadObject(){
-  const M = MODELS[piece];
-  if (!M.prefab) return null;
+// ====== plaques de sol grises (NEW) ======
+const plateGeo = new THREE.PlaneGeometry(CELL, CELL).rotateX(-Math.PI/2);
+const plateMatHouse = new THREE.MeshBasicMaterial({ color:0x777777 });
+const plateMatBuild = new THREE.MeshBasicMaterial({ color:0x666666 });
+function addGroundPlate(x, z, forKind){
+  const mat = forKind==="house" ? plateMatHouse : plateMatBuild;
+  const g = new THREE.Mesh(plateGeo.clone(), mat);
+  g.position.set(x, -0.001, z); // au-dessus du sol vert
+  scene.add(g);
+  return g;
+}
+function removeGroundPlate(plate){
+  if (!plate) return;
+  scene.remove(plate);
+  plate.geometry.dispose();
+  // matériaux partagés: ne pas dispose() plate.material
+}
+
+// ----- création d’un objet placé -----
+function buildPlacedObject(kind){
+  const key = (kind==="house") ? "HOUSE" : (kind==="building" ? "BUILDING" : piece);
+  const M = MODELS[key];
+  if (!M || !M.prefab) return null;
   const obj = M.prefab.clone(true);
   obj.scale.copy(M.scale);
   obj.rotation.y = ANG[angleIndex];
   obj.position.y = 0.0005;
-  obj.userData = { cost: ROAD_COST, piece, angle: angleIndex };
+  obj.userData = {
+    cost: kind==="house" ? HOUSE_COST : kind==="building" ? BUILDING_COST : ROAD_COST,
+    kind, piece, angle: angleIndex,
+    groundPlate: null // NEW
+  };
   return obj;
 }
 
 // ----- placement/suppression -----
-const roads=new Map();
+const roads    = new Map();
+const houses   = new Map();
+const buildings= new Map(); // NEW
 function keyFromCenter(wx,wz){ return `${wx}:${wz}`; }
 
-function place(wx,wz){
-  if (money < ROAD_COST) return;
-  const id=keyFromCenter(wx,wz); if(roads.has(id)) return;
-  const obj = buildRoadObject(); if(!obj) return;
+// voisinage 4
+function hasAdjacentRoad(wx,wz){
+  return (
+    roads.has(keyFromCenter(wx + CELL, wz)) ||
+    roads.has(keyFromCenter(wx - CELL, wz)) ||
+    roads.has(keyFromCenter(wx, wz + CELL)) ||
+    roads.has(keyFromCenter(wx, wz - CELL))
+  );
+}
+
+let lastPlaceError = "";
+
+function placeRoad(wx,wz){
+  if (money < ROAD_COST) { lastPlaceError="money"; return false; }
+  const id=keyFromCenter(wx,wz); if(roads.has(id) || houses.has(id) || buildings.has(id)) { lastPlaceError="occupied"; return false; }
+  const obj = buildPlacedObject("road"); if(!obj) { lastPlaceError="model"; return false; }
   obj.position.set(wx,0.0005,wz);
   scene.add(obj);
   roads.set(id, obj);
   money -= ROAD_COST; renderMoney();
+  lastPlaceError="";
+  return true;
 }
+
+function placeHouse(wx,wz){
+  if (money < HOUSE_COST) { lastPlaceError="money"; return false; }
+  const id=keyFromCenter(wx,wz);
+  if(roads.has(id) || houses.has(id) || buildings.has(id)) { lastPlaceError="occupied"; return false; }
+  if (!hasAdjacentRoad(wx,wz)) { lastPlaceError="no_road"; return false; }
+  const obj = buildPlacedObject("house"); if(!obj) { lastPlaceError="model"; return false; }
+
+  // plaque de sol grise (NEW)
+  obj.userData.groundPlate = addGroundPlate(wx, wz, "house");
+
+  obj.position.set(wx,0.0005,wz);
+  scene.add(obj);
+  houses.set(id, obj);
+  money -= HOUSE_COST; renderMoney();
+  lastPlaceError="";
+  return true;
+}
+
+function placeBuilding(wx,wz){ // NEW
+  if (money < BUILDING_COST) { lastPlaceError="money"; return false; }
+  const id=keyFromCenter(wx,wz);
+  if(roads.has(id) || houses.has(id) || buildings.has(id)) { lastPlaceError="occupied"; return false; }
+  if (!hasAdjacentRoad(wx,wz)) { lastPlaceError="no_road"; return false; }
+  const obj = buildPlacedObject("building"); if(!obj) { lastPlaceError="model"; return false; }
+
+  // plaque de sol grise (NEW)
+  obj.userData.groundPlate = addGroundPlate(wx, wz, "building");
+
+  obj.position.set(wx,0.0005,wz);
+  scene.add(obj);
+  buildings.set(id, obj);
+  money -= BUILDING_COST; renderMoney();
+  lastPlaceError="";
+  return true;
+}
+
 function eraseAtPointer(event){
   if (overUI(event)) return;
   mouse.x=(event.clientX/innerWidth)*2-1; mouse.y=-(event.clientY/innerHeight)*2+1;
   raycaster.setFromCamera(mouse,camera);
-  const hits=raycaster.intersectObjects([...roads.values()], true); if(!hits.length) return;
+  const pool = [...roads.values(), ...houses.values(), ...buildings.values()];
+  const hits=raycaster.intersectObjects(pool, true); if(!hits.length) return;
   let node = hits[0].object, root=null;
-  for(;;){ if ([...roads.values()].includes(node)) { root=node; break; } if (!node.parent||node.parent===scene) break; node=node.parent; }
+  for(;;){
+    if (pool.includes(node)) { root=node; break; }
+    if (!node.parent||node.parent===scene) break; node=node.parent;
+  }
   if(!root) return;
-  let hitKey=null; for(const [k,m] of roads.entries()) if(m===root){ hitKey=k; break; }
+  let hitKey=null, bag=null;
+  for(const [k,m] of roads.entries())      if(m===root){ hitKey=k; bag=roads;      break; }
+  if(!hitKey) for(const [k,m] of houses.entries())    if(m===root){ hitKey=k; bag=houses;    break; }
+  if(!hitKey) for(const [k,m] of buildings.entries()) if(m===root){ hitKey=k; bag=buildings; break; }
   if(!hitKey) return;
+
+  // retire la plaque si présente (NEW)
+  removeGroundPlate(root.userData?.groundPlate);
+
   scene.remove(root);
-  root.traverse(n=>{ if(n.isMesh){ n.geometry?.dispose(); if(n.material?.map) n.material.map.dispose(); n.material?.dispose(); }});
-  roads.delete(hitKey);
-  money += root.userData?.cost ?? ROAD_COST; renderMoney();
+  root.traverse(n=>{ if(n.isMesh){ n.geometry?.dispose(); if(n.material?.map) n.material.map.dispose(); n.material?.dispose?.(); }});
+  bag.delete(hitKey);
+  money += root.userData?.cost ?? 0; renderMoney();
 }
 
 // ----- interactions -----
@@ -274,16 +402,27 @@ addEventListener("pointermove", e=>{
   const p=screenToGround(e); if(!p){ if(cursor) cursor.visible=false; if(preview) preview.visible=false; return; }
   const s=snapFootprint(p);
   if(cursor){ cursor.visible=(mode!=="pan"); cursor.position.set(s.x,0.001,s.z); }
-  if(preview){ preview.visible = (mode==="road"); updatePreviewPosition(s); updatePreviewRotation(); }
-  if(mode==="road" && painting) place(s.x,s.z);
+  if(preview){ preview.visible = (mode==="road"||mode==="house"||mode==="building"); updatePreviewPosition(s); updatePreviewRotation(); }
+  if(mode==="road" && painting)      placeRoad(s.x,s.z);
+  if(mode==="house" && painting)     placeHouse(s.x,s.z);
+  if(mode==="building" && painting)  placeBuilding(s.x,s.z);
   if(mode==="bulldozer" && painting) eraseAtPointer(e);
 });
 
 addEventListener("pointerdown", e=>{
   if (overUI(e)) return;
   if(e.button===0){
-    if(mode==="road"){ const p=screenToGround(e); if(!p) return; const s=snapFootprint(p); painting=true; place(s.x,s.z); }
-    else if(mode==="bulldozer"){ painting=true; eraseAtPointer(e); }
+    if(mode==="road"||mode==="house"||mode==="building"){
+      const p=screenToGround(e); if(!p) return; const s=snapFootprint(p);
+      painting=true;
+      let ok=false;
+      if(mode==="road")      ok = placeRoad(s.x,s.z);
+      if(mode==="house")     ok = placeHouse(s.x,s.z);
+      if(mode==="building")  ok = placeBuilding(s.x,s.z);
+      if(!ok && (mode==="house"||mode==="building") && lastPlaceError==="no_road"){
+        showToast("Besoin d’une route adjacente pour placer ici");
+      }
+    } else if(mode==="bulldozer"){ painting=true; eraseAtPointer(e); }
   } else if(e.button===2){ e.preventDefault(); }
 });
 addEventListener("pointerup", ()=> painting=false);
