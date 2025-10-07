@@ -1,33 +1,37 @@
 ```mermaid
----
-Models
----
-
 erDiagram
   CITY {
     string name
+  }
 
+  RESSOURCES {
     int money
     int food
   }
 
   BUILDING {
     Point position
+    enum orientation
     string type
   }
 
   CONTRACT {
     City first
     City second
-    
+  }
+
+  EXCHANGE {
     int money
     int food
     int electricity
     int water
   }
 
+  CITY ||..|| RESSOURCES : has
   CITY ||--o{ BUILDING : contains
   CITY ||--o{ CONTRACT : signs
+
+  CONTRACT ||..|| EXCHANGE : defines
 ```
 
 # City

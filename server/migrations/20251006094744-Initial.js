@@ -1,5 +1,5 @@
-export async function up(db, client) {
-  await db.createCollection("Cities", {
+export async function up(db) {
+  await db.createCollection("cities", {
     validator: {
       $jsonSchema: {
         required: ["_id", "name"],
@@ -19,8 +19,11 @@ export async function up(db, client) {
       }
     }
   })
+  await db.collection("cities").createIndex({
+    name: 1
+  }, { unique: true })
 
-  await db.createCollection("Buildings", {
+  await db.createCollection("buildings", {
     validator: {
       $jsonSchema: {
         required: ["_id", "city", "position", "type"],
@@ -38,8 +41,19 @@ export async function up(db, client) {
             }
           },
 
+          orientation: {
+            enum: ["n", "s", "e", "w"]
+          },
+
           type: {
-            enum: ["residential", "commercial", "industry", "entertainment", "services"]
+            enum: [
+              "residential",
+              "commercial",
+              "industry",
+              "entertainment",
+              "services"
+            ],
+
           }
         },
         additionalProperties: false
@@ -47,7 +61,7 @@ export async function up(db, client) {
     }
   })
 
-  await db.createCollection("Contracts", {
+  await db.createCollection("contracts", {
     validator: {
       $jsonSchema: {
         required: ["_id", "cityA", "cityB", "money", "food", "electricity", "water"],
@@ -74,8 +88,8 @@ export async function up(db, client) {
   })
 }
 
-export async function down(db, client) {
-  await db.dropCollection("Cities");
-  await db.dropCollection("Buildings");
-  await db.dropCollection("Contracts");
+export async function down(db) {
+  await db.dropCollection("cities");
+  await db.dropCollection("buildings");
+  await db.dropCollection("contracts");
 }

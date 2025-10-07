@@ -1,28 +1,16 @@
 procs:
-  client-run:
-    cwd: client
-    shell: yarn vite
-    autostart: false
-  client-preview:
-    cwd: client
-    shell: yarn vite preview
-    autostart: false
   server-run:
-    cwd: server
     shell: yarn start
     autostart: false
   db-start:
     shell: docker compose up
     autostart: false
   db-build:
-    cwd: server
     shell: yarn migrate-mongo up
     autostart: false
   db-reset:
-    cwd: server
     shell: yarn migrate-mongo down && yarn migrate-mongo up
     autostart: false
   db-destroy:
-    cwd: server
     shell: yarn migrate-mongo down
     autostart: false
