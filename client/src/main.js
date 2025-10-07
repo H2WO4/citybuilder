@@ -1,7 +1,15 @@
+// ===== imports =====
 import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import Stats from "three/examples/jsm/libs/stats.module.js"; // FPS
+import Stats from "three/examples/jsm/libs/stats.module.js";
+
+// URLs des modèles (résolution Vite/ESM, évite le retour d'index.html)
+import URL_STREET_I   from "../texture_models/Street_Straight.glb?url";
+import URL_STREET_L   from "../texture_models/Street_Turn.glb?url";
+import URL_STREET_X   from "../texture_models/Cross_walk.glb?url";
+import URL_HOUSE      from "../texture_models/House.glb?url";
+import URL_BUILDING   from "../texture_models/Building.glb?url";
 
 // ----- paramètres -----
 const TILE_SIZE = 2;
@@ -13,7 +21,7 @@ const ROAD_L = 3 * TILE_SIZE;
 const CELL = 3 * TILE_SIZE;
 const ROAD_COST = 200;
 const HOUSE_COST = 1200;
-const BUILDING_COST = 5000; // NEW
+const BUILDING_COST = 5000; 
 
 // ----- scène -----
 const scene = new THREE.Scene();
@@ -92,15 +100,13 @@ function makeBtn(label,title){
 const btnPan   = makeBtn("🖐️","Navigation");
 const btnRoad  = makeBtn("🛣️","Poser des routes");
 const btnHouse = makeBtn("🏠","Construire une maison");
-const btnBuild = makeBtn("🏢","Construire un building"); // NEW
+const btnBuild = makeBtn("🏢","Construire un building");
 const btnBulld = makeBtn("🪓","Bulldozer");
-bar.append(btnPan, btnRoad, btnHouse, btnBuild, btnBulld); // CHANGED
+bar.append(btnPan, btnRoad, btnHouse, btnBuild, btnBulld);
 
 let mode="pan";
 let cursor = null;
 let preview = null;
-
-
 
 function setActive(m){
   mode=m;
@@ -114,7 +120,7 @@ function setActive(m){
 btnPan.onclick   = ()=> setActive("pan");
 btnRoad.onclick  = ()=> { setActive("road"); makePreview(); };
 btnHouse.onclick = ()=> { setActive("house"); makePreview(); };
-btnBuild.onclick = ()=> { setActive("building"); makePreview(); }; // NEW
+btnBuild.onclick = ()=> { setActive("building"); makePreview(); };
 btnBulld.onclick = ()=> setActive("bulldozer");
 
 // Sous-menu routes uniquement
@@ -190,15 +196,17 @@ function updateCursor(resizeOnly=false){ if(!cursor||resizeOnly) makeCursor(); u
 function updateCursorOrient(){ if(cursor) cursor.rotation.y = ANG[angleIndex]; }
 makeCursor();
 
-// ====== CHARGEMENT DES GLB (X/Z = 3×3, Y auto) ======
+// ====== CHARGEMENT DES GLB ======
 const gltfLoader = new GLTFLoader();
+
 const MODELS = {
-  I:        { path:"./texture_models/Street_Straight.glb", prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] },
-  L:        { path:"./texture_models/Street_Turn.glb",     prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] },
-  X:        { path:"./texture_models/Cross_walk.glb",      prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] },
-  HOUSE:    { path:"./texture_models/House.glb",           prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] },
-  BUILDING: { path:"./texture_models/Building.glb",        prefab:null, scale:new THREE.Vector3(), target:[CELL, CELL] }, // NEW
+  I:        { path: URL_STREET_I, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
+  L:        { path: URL_STREET_L, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
+  X:        { path: URL_STREET_X, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
+  HOUSE:    { path: URL_HOUSE,    prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
+  BUILDING: { path: URL_BUILDING, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] }
 };
+
 for (const key of Object.keys(MODELS)){
   gltfLoader.load(MODELS[key].path,(gltf)=>{
     const root=gltf.scene;
@@ -211,19 +219,19 @@ for (const key of Object.keys(MODELS)){
     const box=new THREE.Box3().setFromObject(root);
     const sz=new THREE.Vector3(); box.getSize(sz);
 
-    const targetX = MODELS[key].target[0], targetZ = MODELS[key].target[1];
+    const [targetX, targetZ] = MODELS[key].target;
     const sX = (sz.x>1e-6)? targetX/sz.x : 1;
     const sZ = (sz.z>1e-6)? targetZ/sz.z : 1;
-    const sY = 0.5*(sX+sZ);              // hauteur auto basée sur X/Z
+    const sY = 0.5*(sX+sZ);
 
     MODELS[key].scale.set(sX, sY, sZ);
     MODELS[key].prefab = root;
 
     if ((key === piece) || (key === "HOUSE" && mode==="house") || (key==="BUILDING" && mode==="building")) makePreview();
-  },undefined,(e)=>console.error("GLB load error:",key,e));
+  },undefined,(e)=>console.error("GLB load error:", key, MODELS[key].path, e));
 }
 
-// ----- PREVIEW (ghost) -----
+// ----- PREVIEW -----
 function makePreview(){
   if (preview){ scene.remove(preview); preview = null; }
   const key = (mode==="house") ? "HOUSE" : (mode==="building" ? "BUILDING" : piece);
@@ -247,14 +255,14 @@ function makePreview(){
 function updatePreviewRotation(){ if(preview) preview.rotation.y = ANG[angleIndex]; }
 function updatePreviewPosition(pos){ if(preview){ preview.position.set(pos.x, 0.0006, pos.z); } }
 
-// ====== plaques de sol grises (NEW) ======
+// ====== plaques de sol grises ======
 const plateGeo = new THREE.PlaneGeometry(CELL, CELL).rotateX(-Math.PI/2);
 const plateMatHouse = new THREE.MeshBasicMaterial({ color:0x777777 });
 const plateMatBuild = new THREE.MeshBasicMaterial({ color:0x666666 });
 function addGroundPlate(x, z, forKind){
   const mat = forKind==="house" ? plateMatHouse : plateMatBuild;
   const g = new THREE.Mesh(plateGeo.clone(), mat);
-  g.position.set(x, -0.001, z); // au-dessus du sol vert
+  g.position.set(x, -0.001, z);
   scene.add(g);
   return g;
 }
@@ -262,7 +270,6 @@ function removeGroundPlate(plate){
   if (!plate) return;
   scene.remove(plate);
   plate.geometry.dispose();
-  // matériaux partagés: ne pas dispose() plate.material
 }
 
 // ----- création d’un objet placé -----
@@ -277,7 +284,7 @@ function buildPlacedObject(kind){
   obj.userData = {
     cost: kind==="house" ? HOUSE_COST : kind==="building" ? BUILDING_COST : ROAD_COST,
     kind, piece, angle: angleIndex,
-    groundPlate: null // NEW
+    groundPlate: null
   };
   return obj;
 }
@@ -285,7 +292,7 @@ function buildPlacedObject(kind){
 // ----- placement/suppression -----
 const roads    = new Map();
 const houses   = new Map();
-const buildings= new Map(); // NEW
+const buildings= new Map();
 function keyFromCenter(wx,wz){ return `${wx}:${wz}`; }
 
 // voisinage 4
@@ -319,7 +326,6 @@ function placeHouse(wx,wz){
   if (!hasAdjacentRoad(wx,wz)) { lastPlaceError="no_road"; return false; }
   const obj = buildPlacedObject("house"); if(!obj) { lastPlaceError="model"; return false; }
 
-  // plaque de sol grise (NEW)
   obj.userData.groundPlate = addGroundPlate(wx, wz, "house");
 
   obj.position.set(wx,0.0005,wz);
@@ -330,14 +336,13 @@ function placeHouse(wx,wz){
   return true;
 }
 
-function placeBuilding(wx,wz){ // NEW
+function placeBuilding(wx,wz){
   if (money < BUILDING_COST) { lastPlaceError="money"; return false; }
   const id=keyFromCenter(wx,wz);
   if(roads.has(id) || houses.has(id) || buildings.has(id)) { lastPlaceError="occupied"; return false; }
   if (!hasAdjacentRoad(wx,wz)) { lastPlaceError="no_road"; return false; }
   const obj = buildPlacedObject("building"); if(!obj) { lastPlaceError="model"; return false; }
 
-  // plaque de sol grise (NEW)
   obj.userData.groundPlate = addGroundPlate(wx, wz, "building");
 
   obj.position.set(wx,0.0005,wz);
@@ -366,7 +371,6 @@ function eraseAtPointer(event){
   if(!hitKey) for(const [k,m] of buildings.entries()) if(m===root){ hitKey=k; bag=buildings; break; }
   if(!hitKey) return;
 
-  // retire la plaque si présente (NEW)
   removeGroundPlate(root.userData?.groundPlate);
 
   scene.remove(root);
