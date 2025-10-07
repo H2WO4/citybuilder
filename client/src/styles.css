@@ -67,10 +67,11 @@ canvas { display:block; }
 .action ul {
   list-style:none;
   margin:0;
+  color:#000000da;
   padding:14px 16px;
   position:absolute;
   top:0;
-  left:70px; /* décale le menu à droite du bouton (60px largeur + marge) */
+  left:70px; 
   background:#fdfdfd;
   min-width:220px;
   border:2px solid #ffffff;
@@ -83,6 +84,7 @@ canvas { display:block; }
   transition:opacity .25s ease, transform .25s ease;
   display:flex;
   flex-direction:column;
+  
 }
 .action.active ul {
   opacity:1;
@@ -102,7 +104,7 @@ canvas { display:block; }
   font-weight: 600;
 }
 .action ul li:not(:last-child) {
-  border-bottom: 1p x solid rgba(0,0,0,0.1);
+  border-bottom: 1p x solid rgba(0, 0, 0, 0);
 }
 .action ul li img {
   margin-right: 15px;
