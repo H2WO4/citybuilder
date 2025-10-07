@@ -93,6 +93,8 @@ renderMoney();
 let mode = "pan";
 let cursor = null;
 let preview = null;
+let bulldozerHover = null;
+let bulldozerHelper = null;
 
 const fabList = document.getElementById("fab-tools");
 function updateFabActive(){
@@ -106,8 +108,17 @@ function setActive(m){
   updateFabActive();
   document.body.style.cursor = (m==="road"||m==="house"||m==="building")?"crosshair":m==="bulldozer"?"not-allowed":"default";
   if (typeof grid !== "undefined") grid.visible = (m !== "pan");
-  if (preview) preview.visible = ((m==="road"||m==="house"||m==="building") && !overUI(lastPointerEvent));
-  if (m==="road"||m==="house"||m==="building") makePreview();
+  // Bulldozer : aucune preview
+  if (preview) {
+    if (m==="road"||m==="house"||m==="building") {
+      preview.visible = !overUI(lastPointerEvent);
+    } else {
+      preview.visible = false;
+    }
+  }
+  if (m==="road"||m==="house"||m==="building") {
+    if (!preview) makePreview();
+  }
 }
 if(fabList){
   fabList.addEventListener("click", (e)=>{
@@ -363,12 +374,27 @@ function eraseAtPointer(event){
   scene.remove(root);
   root.traverse(n=>{ if(n.isMesh){ n.geometry?.dispose(); if(n.material?.map) n.material.map.dispose(); n.material?.dispose?.(); }});
   bag.delete(hitKey);
-  money += root.userData?.cost ?? 0; renderMoney();
+  // Remboursement : route 100%, maison / building 50%
+  const full = root.userData?.cost ?? 0;
+  let refund = full;
+  if (root.userData?.kind === 'house' || root.userData?.kind === 'building') {
+    refund = Math.round(full * 0.5);
+  }
+  money += refund; renderMoney();
 }
 
 // ----- interactions -----
 let painting=false;
 let lastPointerEvent = null;
+
+// Annulation du mode placement / prévisualisation
+function cancelPlacement(showMsg = true){
+  if (preview){ scene.remove(preview); preview = null; }
+  if (cursor)  cursor.visible = false;
+  painting = false;
+  setActive("pan");
+  if (showMsg) showToast("Placement annulé");
+}
 
 addEventListener("pointermove", e=>{
   lastPointerEvent = e;
@@ -385,10 +411,10 @@ addEventListener("pointermove", e=>{
 
 addEventListener("pointerdown", e=>{
   if (overUI(e)) return;
-  if(e.button===0){
+  if (e.button === 0){
     if(mode==="road"||mode==="house"||mode==="building"){
       const p=screenToGround(e); if(!p) return; const s=snapToCell(p);
-      painting=true;
+      painting = true;
       let ok=false;
       if(mode==="road")      ok = placeRoad(s.x,s.z);
       if(mode==="house")     ok = placeHouse(s.x,s.z);
@@ -397,7 +423,19 @@ addEventListener("pointerdown", e=>{
         showToast("Besoin d’une route adjacente pour placer ici");
       }
     } else if(mode==="bulldozer"){ painting=true; eraseAtPointer(e); }
-  } else if(e.button===2){ e.preventDefault(); }
+  } else if (e.button === 2){
+    // Clic droit : annule si on est dans un mode de placement ou bulldozer
+    if (mode==="road"||mode==="house"||mode==="building"){
+      e.preventDefault();
+      cancelPlacement();
+    } else if (mode === "bulldozer") {
+      e.preventDefault();
+      setActive("pan");
+      showToast("Bulldozer annulé");
+    } else {
+      e.preventDefault(); // on supprime menu contextuel tout de même
+    }
+  }
 });
 addEventListener("pointerup", ()=> painting=false);
 addEventListener("contextmenu", e=> e.preventDefault());
