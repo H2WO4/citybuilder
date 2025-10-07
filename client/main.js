@@ -1,14 +1,15 @@
 import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import Stats from "three/examples/jsm/libs/stats.module.js"; // FPS
 
 // ----- paramètres -----
 const TILE_SIZE = 2;
-const GRID_VIS_SIZE = 128;
+const GRID_VIS_SIZE = 5000;
 const MIN_ZOOM = 0.4, MAX_ZOOM = 6;
 let viewSize = 40;
 const ROAD_W = 3 * TILE_SIZE;
-const ROAD_L = 3 * TILE_SIZE;           // 3x3
+const ROAD_L = 3 * TILE_SIZE;
 const ROAD_COST = 200;
 
 // ----- scène -----
@@ -34,6 +35,24 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x55aa55);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
+
+// ----- stats + HUD FPS (même style UI) -----
+const stats = new Stats();
+stats.showPanel(0);
+stats.dom.style.display = "none"; // mesure sans afficher le panneau par défaut
+document.body.appendChild(stats.dom);
+
+const fpsHud = document.createElement("div");
+Object.assign(fpsHud.style, {
+  position:"fixed", top:"12px", left:"50%", transform:"translateX(-50%)",
+  padding:"8px 12px", border:"2px solid #222", borderRadius:"10px",
+  background:"rgba(255,255,255,0.9)", fontFamily:"system-ui, sans-serif",
+  fontSize:"16px", color:"#111", boxShadow:"0 2px 8px rgba(0,0,0,0.15)",
+  pointerEvents:"none", zIndex:"10000"
+});
+fpsHud.textContent = "— FPS";
+fpsHud.className = "ui";
+document.body.appendChild(fpsHud);
 
 // ===== HUD Argent =====
 let money = 200000;
@@ -68,8 +87,8 @@ const btnBulld=makeBtn("🪓","Bulldozer");
 bar.append(btnPan, btnRoad, btnBulld);
 
 let mode="pan";
-let cursor = null;       // << déplacé avant setActive pour éviter la TDZ
-let preview = null;      // << déplacé avant setActive pour éviter la TDZ
+let cursor = null;
+let preview = null;
 
 function setActive(m){
   mode=m;
@@ -84,7 +103,7 @@ btnPan.onclick = ()=> setActive("pan");
 btnRoad.onclick = ()=> setActive("road");
 btnBulld.onclick = ()=> setActive("bulldozer");
 
-// Sous-menu (3 pièces : I, L, X)
+// Sous-menu
 const sub = document.createElement("div");
 Object.assign(sub.style,{position:"fixed",top:"54px",left:"12px",display:"none",gap:"6px",
   background:"rgba(255,255,255,0.98)",border:"2px solid #222",borderRadius:"10px",padding:"6px",
@@ -126,7 +145,7 @@ function screenToGround(e){ mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clie
   return raycaster.ray.intersectPlane(groundPlane,p)?p.clone():null; }
 function overUI(e){ return !!(e && e.target && e.target.closest(".ui")); }
 
-// --- Snap footprint 3x3 pour toutes les pièces ---
+// --- Snap footprint 3x3 ---
 function footprintTiles(){ return [3,3]; }
 function snapAxis(v, isEven){
   if (isEven) return Math.round(v / TILE_SIZE) * TILE_SIZE;
@@ -149,7 +168,7 @@ addEventListener("keydown",(e)=>{
   }
 });
 
-// ----- curseur (toutes 3x3) -----
+// ----- curseur -----
 const GEO_I = new THREE.PlaneGeometry(3*TILE_SIZE, 3*TILE_SIZE).rotateX(-Math.PI/2);
 const GEO_S = new THREE.PlaneGeometry(3*TILE_SIZE, 3*TILE_SIZE).rotateX(-Math.PI/2);
 function makeCursor(){
@@ -160,7 +179,7 @@ function makeCursor(){
 }
 function updateCursor(resizeOnly=false){ if(!cursor||resizeOnly) makeCursor(); updateCursorOrient(); }
 function updateCursorOrient(){ if(cursor) cursor.rotation.y = ANG[angleIndex]; }
-makeCursor(); // créé avant tout usage
+makeCursor();
 
 // ====== CHARGEMENT DES 3 GLB ======
 const gltfLoader = new GLTFLoader();
@@ -204,7 +223,7 @@ function makePreview(){
 function updatePreviewRotation(){ if(preview) preview.rotation.y = ANG[angleIndex]; }
 function updatePreviewPosition(pos){ if(preview){ preview.position.set(pos.x, 0.0006, pos.z); } }
 
-// ----- création d’une tuile route (GLB réel) -----
+// ----- création d’une tuile route -----
 function buildRoadObject(){
   const M = MODELS[piece];
   if (!M.prefab) return null;
@@ -270,12 +289,36 @@ addEventListener("pointerdown", e=>{
 addEventListener("pointerup", ()=> painting=false);
 addEventListener("contextmenu", e=> e.preventDefault());
 
-// ----- init états dépendants -----
-makePreview();      // créé après MODELS init, mais no-op si non chargés
-setActive("pan");   // appelé après déclarations de cursor/preview
+// ----- init -----
+makePreview();
+setActive("pan");
 
 // ----- zoom + resize + loop -----
-addEventListener("wheel", ()=>{ camera.zoom=THREE.MathUtils.clamp(camera.zoom, MIN_ZOOM, MAX_ZOOM); camera.updateProjectionMatrix(); });
+addEventListener("wheel", ()=>{
+  camera.zoom=THREE.MathUtils.clamp(camera.zoom, MIN_ZOOM, MAX_ZOOM);
+  camera.updateProjectionMatrix();
+});
 addEventListener("resize", ()=>{ setOrtho(camera); renderer.setSize(innerWidth, innerHeight); });
-function tick(){ updateGrid(); controls.update(); renderer.render(scene, camera); requestAnimationFrame(tick); }
+
+// ----- boucle anim + FPS -----
+let frames = 0, t0 = performance.now();
+function tick(){
+  stats.begin();
+
+  updateGrid();
+  controls.update();
+  renderer.render(scene, camera);
+
+  stats.end();
+
+  frames++;
+  const now = performance.now();
+  if (now - t0 >= 500) {
+    const fps = Math.round(frames * 1000 / (now - t0));
+    fpsHud.textContent = `${fps} FPS`;
+    frames = 0; t0 = now;
+  }
+
+  requestAnimationFrame(tick);
+}
 requestAnimationFrame(tick);
