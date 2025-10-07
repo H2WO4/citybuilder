@@ -25,7 +25,8 @@ canvas { display:block; }
 /* Floating action menu (optional) */
 .action { position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:#2563eb; color:#fff; display:flex; justify-content:center; align-items:center; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,.25); font-size:34px; user-select:none; }
 .action span { pointer-events:none; }
-/* (supprimé : ancienne ouverture verticale) */
+.action ul { list-style:none; padding:0; margin:0; position:absolute; bottom:70px; right:0; display:none; background:#fff; border:2px solid #222; border-radius:12px; padding:10px; box-shadow:0 4px 12px rgba(0,0,0,.25); }
+.action.active ul { display:block; }
 .action ul li { white-space:nowrap; font-size:14px; padding:6px 8px; display:flex; align-items:center; gap:6px; cursor:pointer; border-radius:6px; }
 .action ul li:hover { background:#f2f2f2; }
 
@@ -44,10 +45,10 @@ canvas { display:block; }
   left: 50px;
   width: 50px;
   height: 50px;
-  background: #c53d3d00;
+  background: #fff;
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 5px 5px rgba(255, 255, 255, 0);
+  box-shadow: 0 5px 5px rgba(0,0,0,0.1);
 }
 .action span {
   position: relative;
@@ -56,7 +57,7 @@ canvas { display:block; }
   display: flex;
   justify-content: center;
   align-items: center;
-  color: #ffffff;
+  color: #369cae;
   font-size: 2em;
   transition: .3s ease-in-out;
 }
@@ -65,29 +66,21 @@ canvas { display:block; }
 }
 
 .action ul {
-  list-style:none;
-  margin:0;
-  padding:14px 16px;
-  position:absolute;
-  top:0;
-  left:70px; /* décale le menu à droite du bouton (60px largeur + marge) */
-  background:#fdfdfd;
-  min-width:220px;
-  border:2px solid #ffffff;
-  border-radius:16px;
-  box-shadow:0 4px 12px rgba(0,0,0,.25);
-  opacity:0;
-  visibility:hidden;
-  transform:translateX(-10px) scale(.95);
-  transform-origin:left center;
-  transition:opacity .25s ease, transform .25s ease;
-  display:flex;
-  flex-direction:column;
+  position: relative;
+  bottom: 55px;
+  background: #f2f0f0;
+  min-width: 250px;
+  padding: 20px;
+  border-radius: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: .3s;
 }
 .action.active ul {
-  opacity:1;
-  visibility:visible;
-  transform:translateX(0) scale(1);
+  bottom: 65px;
+  opacity: 1;
+  visibility: visible;
+  transition: .3s;
 }
 .action ul li {
   list-style:none;
@@ -102,7 +95,7 @@ canvas { display:block; }
   font-weight: 600;
 }
 .action ul li:not(:last-child) {
-  border-bottom: 1p x solid rgba(0,0,0,0.1);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
 }
 .action ul li img {
   margin-right: 15px;
@@ -113,10 +106,3 @@ canvas { display:block; }
   opacity: .8;
   transform: scale(1.0);
 }
-
-
-/* Dynamic flip helpers mis à jour pour ouverture horizontale */
-.action.flip-x ul { left:auto; right:70px; transform-origin:right center; }
-/* flip-y conservé (si futur usage vertical) */
-.action.flip-y ul { top:auto; bottom:0; }
-.action.flip-x.flip-y ul { left:auto; right:70px; }

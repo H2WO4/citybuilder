@@ -86,59 +86,44 @@ const fmtEUR = new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",ma
 function renderMoney(){ hud.textContent = fmtEUR.format(money); }
 renderMoney();
 
-// ===== Toolbar + sous-menu =====
-const bar = document.createElement("div");
-bar.className = "ui toolbar";
-document.body.appendChild(bar);
-function makeBtn(label,title){
-  const b=document.createElement("button"); b.type="button"; b.textContent=label; b.title=title;
-  b.className = "tool-btn";
-  b.onmouseenter=()=>b.style.background="#f2f2f2";
-  b.onmouseleave =()=>b.style.background=(b.dataset.active==="1")?"#dde8ff":"#fff";
-  return b;
-}
-const btnPan   = makeBtn("🖐️","Navigation");
-const btnRoad  = makeBtn("🛣️","Poser des routes");
-const btnHouse = makeBtn("🏠","Construire une maison");
-const btnBuild = makeBtn("🏢","Construire un building");
-const btnBulld = makeBtn("🪓","Bulldozer");
-bar.append(btnPan, btnRoad, btnHouse, btnBuild, btnBulld);
-
-let mode="pan";
+// ===== Outils via le menu flottant =====
+let mode = "pan";
 let cursor = null;
 let preview = null;
 
+const fabList = document.getElementById("fab-tools");
+function updateFabActive(){
+  if(!fabList) return;
+  [...fabList.children].forEach(li=>{
+    if(li.dataset.tool === mode) li.classList.add("active"); else li.classList.remove("active");
+  });
+}
 function setActive(m){
-  mode=m;
-  for (const b of [btnPan,btnRoad,btnHouse,btnBuild,btnBulld]){ b.dataset.active="0"; b.style.background="#fff"; }
-  ({pan:btnPan,road:btnRoad,house:btnHouse,building:btnBuild,bulldozer:btnBulld}[m]).dataset.active="1";
-  ({pan:btnPan,road:btnRoad,house:btnHouse,building:btnBuild,bulldozer:btnBulld}[m]).style.background="#dde8ff";
+  mode = m;
+  updateFabActive();
   document.body.style.cursor = (m==="road"||m==="house"||m==="building")?"crosshair":m==="bulldozer"?"not-allowed":"default";
   if (typeof grid !== "undefined") grid.visible = (m !== "pan");
   if (preview) preview.visible = ((m==="road"||m==="house"||m==="building") && !overUI(lastPointerEvent));
+  if (m==="road"||m==="house"||m==="building") makePreview();
 }
-btnPan.onclick   = ()=> setActive("pan");
-btnRoad.onclick  = ()=> { setActive("road"); makePreview(); };
-btnHouse.onclick = ()=> { setActive("house"); makePreview(); };
-btnBuild.onclick = ()=> { setActive("building"); makePreview(); };
-btnBulld.onclick = ()=> setActive("bulldozer");
+if(fabList){
+  fabList.addEventListener("click", (e)=>{
+    const li = e.target.closest("li[data-tool]");
+    if(!li) return;
+    setActive(li.dataset.tool);
+  });
+}
 
-// Sous-menu routes uniquement
-const sub = document.createElement("div");
-sub.className = "ui sub-menu";
-document.body.appendChild(sub);
-function makeMini(label, title, onClick){
-  const b=document.createElement("button"); b.textContent=label; b.title=title; b.type="button"; b.onclick=onClick;
-  b.className = "mini-btn"; return b;
-}
+// Sélection de variante route : cycle I -> L -> X au clavier (R)
 let piece = "I";
-const miniI = makeMini("I","Ligne droite", ()=>{ piece="I"; updateCursor(true); makePreview(); setActive("road"); });
-const miniL = makeMini("L","Virage",       ()=>{ piece="L"; updateCursor(true); makePreview(); setActive("road"); });
-const miniX = makeMini("X","Passage piéton",()=>{ piece="X"; updateCursor(true); makePreview(); setActive("road"); });
-sub.append(miniI, miniL, miniX);
-btnRoad.addEventListener("mouseenter", ()=> sub.style.display="flex");
-btnRoad.addEventListener("mouseleave", ()=> setTimeout(()=>{ if(!sub.matches(":hover")) sub.style.display="none"; }, 80));
-sub.addEventListener("mouseleave", ()=> sub.style.display="none");
+function cyclePiece(){
+  piece = piece === "I" ? "L" : piece === "L" ? "X" : "I";
+  updateCursor(true); makePreview();
+  showToast(`Route: ${piece}`);
+}
+addEventListener("keydown", (e)=>{
+  if ((e.key === 'r' || e.key === 'R') && mode === 'road') { e.preventDefault(); cyclePiece(); }
+});
 
 // ----- contrôles -----
 const controls = new MapControls(camera, renderer.domElement);
@@ -147,11 +132,17 @@ controls.mouseButtons.LEFT=null; controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
 controls.addEventListener("change",()=> camera.position.y=Math.max(camera.position.y,1));
 
 // ----- grille + sol -----
-const grid = new THREE.GridHelper(GRID_VIS_SIZE, GRID_VIS_SIZE / TILE_SIZE, 0x000000, 0x000000);
+// Une case de grille = 1 cellule (3x3 tiles)
+const grid = new THREE.GridHelper(GRID_VIS_SIZE, GRID_VIS_SIZE / CELL, 0x000000, 0x000000);
 grid.material.transparent=true; grid.material.opacity=0.35; grid.material.depthWrite=false; grid.renderOrder=1; scene.add(grid);
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(4096,4096), new THREE.MeshBasicMaterial({color:0x55aa55}));
 ground.rotation.x=-Math.PI/2; ground.position.y=-0.002; scene.add(ground);
-function updateGrid(){ const gx=Math.round(camera.position.x/TILE_SIZE)*TILE_SIZE; const gz=Math.round(camera.position.z/TILE_SIZE)*TILE_SIZE; grid.position.set(gx,0,gz); }
+// centre la grille par pas de cellule
+function updateGrid(){
+  const gx = Math.round(camera.position.x / CELL) * CELL;
+  const gz = Math.round(camera.position.z / CELL) * CELL;
+  grid.position.set(gx,0,gz);
+}
 
 // ----- Raycast & snap -----
 const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
@@ -161,17 +152,10 @@ function screenToGround(e){ mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clie
   return raycaster.ray.intersectPlane(groundPlane,p)?p.clone():null; }
 function overUI(e){ return !!(e && e.target && e.target.closest(".ui")); }
 
-// --- Snap footprint 3x3 ---
-function footprintTiles(){ return [3,3]; }
-function snapAxis(v, isEven){
-  if (isEven) return Math.round(v / TILE_SIZE) * TILE_SIZE;
-  return Math.floor(v / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
-}
-function snapFootprint(worldVec3){
-  let [tx, tz] = footprintTiles();
-  if ((angleIndex & 1) === 1) [tx, tz] = [tz, tx];
-  const x = snapAxis(worldVec3.x, (tx % 2) === 0);
-  const z = snapAxis(worldVec3.z, (tz % 2) === 0);
+// --- Snap sur cellule entière ---
+function snapToCell(v){
+  const x = Math.round(v.x / CELL) * CELL;
+  const z = Math.round(v.z / CELL) * CELL;
   return new THREE.Vector3(x, 0, z);
 }
 
@@ -185,7 +169,7 @@ addEventListener("keydown",(e)=>{
 });
 
 // ----- curseur -----
-const GEO_PLACEMENT = new THREE.PlaneGeometry(3*TILE_SIZE, 3*TILE_SIZE).rotateX(-Math.PI/2);
+const GEO_PLACEMENT = new THREE.PlaneGeometry(CELL, CELL).rotateX(-Math.PI/2); // taille d'une cellule
 function makeCursor(){
   if (cursor) scene.remove(cursor);
   const geo = GEO_PLACEMENT.clone();
@@ -387,7 +371,7 @@ addEventListener("pointermove", e=>{
   lastPointerEvent = e;
   if (overUI(e)) { if(cursor) cursor.visible=false; if(preview) preview.visible=false; return; }
   const p=screenToGround(e); if(!p){ if(cursor) cursor.visible=false; if(preview) preview.visible=false; return; }
-  const s=snapFootprint(p);
+  const s=snapToCell(p);
   if(cursor){ cursor.visible=(mode!=="pan"); cursor.position.set(s.x,0.001,s.z); }
   if(preview){ preview.visible = (mode==="road"||mode==="house"||mode==="building"); updatePreviewPosition(s); updatePreviewRotation(); }
   if(mode==="road" && painting)      placeRoad(s.x,s.z);
@@ -400,7 +384,7 @@ addEventListener("pointerdown", e=>{
   if (overUI(e)) return;
   if(e.button===0){
     if(mode==="road"||mode==="house"||mode==="building"){
-      const p=screenToGround(e); if(!p) return; const s=snapFootprint(p);
+      const p=screenToGround(e); if(!p) return; const s=snapToCell(p);
       painting=true;
       let ok=false;
       if(mode==="road")      ok = placeRoad(s.x,s.z);
