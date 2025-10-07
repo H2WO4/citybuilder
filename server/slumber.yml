@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/LucasPickering/slumber/refs/tags/v4.0.1/schemas/collection.json
+# ^ This enables schema validation and autocomplete in your editor
+# https://github.com/redhat-developer/yaml-language-server
+
+# For basic usage info, see:
+# https://slumber.lucaspickering.me/getting_started.html
+# For all collection options, see:
+# https://slumber.lucaspickering.me/api/request_collection/index.html
+
+name: Server
+
+.base_profile_data:
+  city_id: "{{ response('c_get_all', trigger='no_history') | jsonpath('$[*]._id', mode='array') | select() }}"
+
+profiles:
+  local:
+    data:
+      $ref: "#/.base_profile_data"
+      host: http://localhost:3000
+
+requests:
+  cities:
+    name: Cities
+    requests:
+      c_get_all:
+        name: Get All
+        method: GET
+        url: "{{ host }}/cities"
+      c_post_one:
+        name: Post One
+        method: POST
+        url: "{{ host }}/cities"
+        body:
+          type: json
+          data:
+            name: "{{ prompt(message='Name') }}"
+      c_get_by_name:
+        name: Get by Name
+        method: GET
+        url: "{{ host }}/cities/{{ prompt(message='Name') }}"
+  buildings:
+    name: Buildings
+    requests:
+      b_get_all_city:
+        name: Get All from City
+        method: GET
+        url: "{{ host }}/buildings/{{ city_id }}"
