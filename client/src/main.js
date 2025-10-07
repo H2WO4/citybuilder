@@ -86,59 +86,44 @@ const fmtEUR = new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",ma
 function renderMoney(){ hud.textContent = fmtEUR.format(money); }
 renderMoney();
 
-// ===== Toolbar + sous-menu =====
-const bar = document.createElement("div");
-bar.className = "ui toolbar";
-document.body.appendChild(bar);
-function makeBtn(label,title){
-  const b=document.createElement("button"); b.type="button"; b.textContent=label; b.title=title;
-  b.className = "tool-btn";
-  b.onmouseenter=()=>b.style.background="#f2f2f2";
-  b.onmouseleave =()=>b.style.background=(b.dataset.active==="1")?"#dde8ff":"#fff";
-  return b;
-}
-const btnPan   = makeBtn("🖐️","Navigation");
-const btnRoad  = makeBtn("🛣️","Poser des routes");
-const btnHouse = makeBtn("🏠","Construire une maison");
-const btnBuild = makeBtn("🏢","Construire un building");
-const btnBulld = makeBtn("🪓","Bulldozer");
-bar.append(btnPan, btnRoad, btnHouse, btnBuild, btnBulld);
-
-let mode="pan";
+// ===== Outils via le menu flottant =====
+let mode = "pan";
 let cursor = null;
 let preview = null;
 
+const fabList = document.getElementById("fab-tools");
+function updateFabActive(){
+  if(!fabList) return;
+  [...fabList.children].forEach(li=>{
+    if(li.dataset.tool === mode) li.classList.add("active"); else li.classList.remove("active");
+  });
+}
 function setActive(m){
-  mode=m;
-  for (const b of [btnPan,btnRoad,btnHouse,btnBuild,btnBulld]){ b.dataset.active="0"; b.style.background="#fff"; }
-  ({pan:btnPan,road:btnRoad,house:btnHouse,building:btnBuild,bulldozer:btnBulld}[m]).dataset.active="1";
-  ({pan:btnPan,road:btnRoad,house:btnHouse,building:btnBuild,bulldozer:btnBulld}[m]).style.background="#dde8ff";
+  mode = m;
+  updateFabActive();
   document.body.style.cursor = (m==="road"||m==="house"||m==="building")?"crosshair":m==="bulldozer"?"not-allowed":"default";
   if (typeof grid !== "undefined") grid.visible = (m !== "pan");
   if (preview) preview.visible = ((m==="road"||m==="house"||m==="building") && !overUI(lastPointerEvent));
+  if (m==="road"||m==="house"||m==="building") makePreview();
 }
-btnPan.onclick   = ()=> setActive("pan");
-btnRoad.onclick  = ()=> { setActive("road"); makePreview(); };
-btnHouse.onclick = ()=> { setActive("house"); makePreview(); };
-btnBuild.onclick = ()=> { setActive("building"); makePreview(); };
-btnBulld.onclick = ()=> setActive("bulldozer");
+if(fabList){
+  fabList.addEventListener("click", (e)=>{
+    const li = e.target.closest("li[data-tool]");
+    if(!li) return;
+    setActive(li.dataset.tool);
+  });
+}
 
-// Sous-menu routes uniquement
-const sub = document.createElement("div");
-sub.className = "ui sub-menu";
-document.body.appendChild(sub);
-function makeMini(label, title, onClick){
-  const b=document.createElement("button"); b.textContent=label; b.title=title; b.type="button"; b.onclick=onClick;
-  b.className = "mini-btn"; return b;
-}
+// Sélection de variante route : cycle I -> L -> X au clavier (R)
 let piece = "I";
-const miniI = makeMini("I","Ligne droite", ()=>{ piece="I"; updateCursor(true); makePreview(); setActive("road"); });
-const miniL = makeMini("L","Virage",       ()=>{ piece="L"; updateCursor(true); makePreview(); setActive("road"); });
-const miniX = makeMini("X","Passage piéton",()=>{ piece="X"; updateCursor(true); makePreview(); setActive("road"); });
-sub.append(miniI, miniL, miniX);
-btnRoad.addEventListener("mouseenter", ()=> sub.style.display="flex");
-btnRoad.addEventListener("mouseleave", ()=> setTimeout(()=>{ if(!sub.matches(":hover")) sub.style.display="none"; }, 80));
-sub.addEventListener("mouseleave", ()=> sub.style.display="none");
+function cyclePiece(){
+  piece = piece === "I" ? "L" : piece === "L" ? "X" : "I";
+  updateCursor(true); makePreview();
+  showToast(`Route: ${piece}`);
+}
+addEventListener("keydown", (e)=>{
+  if ((e.key === 'r' || e.key === 'R') && mode === 'road') { e.preventDefault(); cyclePiece(); }
+});
 
 // ----- contrôles -----
 const controls = new MapControls(camera, renderer.domElement);
