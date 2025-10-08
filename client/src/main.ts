@@ -22,6 +22,8 @@ const CELL = 3 * TILE_SIZE;
 const ROAD_COST = 200;
 const HOUSE_COST = 1200;
 const BUILDING_COST = 5000;
+// Pourcentage de remboursement universel
+const REFUND_RATIO = 0.5; // 50%
 
 // === trame unique ===
 const STEP = CELL;
@@ -253,14 +255,8 @@ function setActive(m: any) {
     makePreview();
     if (preview) preview.visible = !overUI(lastPointerEvent);
   } else if (m === "bulldozer") {
-    // créer une "preview" rouge simple pour feedback (carré rouge sur la cellule)
+    // Mode bulldozer: pas de preview séparée pour éviter double overlay, seul le curseur (rouge) sert de feedback
     if (preview) { scene.remove(preview); preview = null; }
-    const geo = GEO_PLACEMENT.clone();
-    const mat = new THREE.MeshBasicMaterial({ color:0xff0000, transparent:true, opacity:0.25 });
-    const plate = new THREE.Mesh(geo, mat);
-    plate.position.y = 0.0006;
-    preview = plate;
-    scene.add(preview);
   } else {
     if (preview) preview.visible = false;
   }
@@ -586,12 +582,16 @@ function eraseAtPointer(event:any){
     }
   });
   if (bag) bag.delete(hitKey as any);
-  // Remboursement : route 100%, maison / building 50%
+  // Remboursement universel basé sur REFUND_RATIO
   const full = root.userData?.cost ?? 0;
-  let refund = full;
-  if (root.userData?.kind === 'house' || root.userData?.kind === 'building') refund = Math.round(full * 0.5);
-  money += refund; renderMoney();
-  if (refund > 0) showRefund(refund);
+  const refund = Math.round(full * REFUND_RATIO);
+  if (refund > 0 && full > 0) {
+    money += refund;
+    renderMoney();
+    showRefund(refund);
+    // Debug (désactive si inutile)
+    // console.debug(`[REFUND] kind=${root.userData?.kind} cost=${full} refund=${refund}`);
+  }
 }
 
 // ----- interactions -----
@@ -613,10 +613,10 @@ addEventListener("pointermove", e=>{
   const s = snapToCell(p);
   if (cursor) { cursor.visible = (mode !== "pan"); cursor.position.set(s.x, 0.001, s.z); }
   if (preview) {
-    if (mode === "road" || mode === "house" || mode === "building" || mode === 'bulldozer') {
+    if (mode === "road" || mode === "house" || mode === "building") {
       preview.visible = true;
       updatePreviewPosition(s);
-      if (mode !== 'bulldozer') updatePreviewRotation();
+      updatePreviewRotation();
     } else {
       preview.visible = false;
     }
