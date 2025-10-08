@@ -9,8 +9,10 @@ import URL_STREET_I from "../texture_models/Roads/StreetStraight.glb?url";
 import URL_STREET_X from "../texture_models/Roads/Crosswalk.glb?url";
 import URL_HOUSE    from "../texture_models/Buildings/House.glb?url";
 import URL_BUILDING from "../texture_models/Buildings/Building.glb?url";
+
 import * as UI from "./ui";
 
+// Init
 UI.init();
 
 // ----- paramètres -----
