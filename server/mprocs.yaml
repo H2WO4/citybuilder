@@ -5,6 +5,8 @@ procs:
   db-start:
     shell: docker compose up
     autostart: false
+    stop:
+      send-keys: ["<C-c>"]
   db-build:
     shell: yarn migrate-mongo up
     autostart: false
