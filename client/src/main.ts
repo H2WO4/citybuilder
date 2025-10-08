@@ -223,28 +223,26 @@ function showSpend(amount:number){
 
 // ===== HUD Argent et Ressources =====
 let money = 200000;
-const hud = document.createElement("div");
-hud.className = "ui panel money-hud";
-document.body.appendChild(hud);
+const hud = document.getElementById("money-hud") as HTMLElement;
 const fmtEUR = new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0});
-function renderMoney(){ hud.textContent = fmtEUR.format(money); }
+function renderMoney(){ if(hud) hud.textContent = fmtEUR.format(money); }
 renderMoney();
 
 // ----- ressources -----
 let resources = { power: 0, water: 0, food: 0, wood: 0 };
 let production = { power: 0, water: 0, food: 0, wood: 0 };
 
-// conteneur visuel
-const resHud = document.createElement("div");
-resHud.className = "ui panel res-hud";
-
-document.body.appendChild(resHud);
+const resHud = document.getElementById("res-hud") as HTMLElement;
 
 function updateRes(){
-  (document.getElementById("r-power") as HTMLElement).textContent = String(resources.power);
-  (document.getElementById("r-water") as HTMLElement).textContent = String(resources.water);
-  (document.getElementById("r-food")  as HTMLElement).textContent = String(resources.food);
-  (document.getElementById("r-wood")  as HTMLElement).textContent = String(resources.wood);
+  const p = document.getElementById("r-power");
+  const w = document.getElementById("r-water");
+  const f = document.getElementById("r-food");
+  const wd = document.getElementById("r-wood");
+  if(p) p.textContent = String(resources.power);
+  if(w) w.textContent = String(resources.water);
+  if(f) f.textContent = String(resources.food);
+  if(wd) wd.textContent = String(resources.wood);
 }
 updateRes();
 
