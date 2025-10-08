@@ -260,3 +260,36 @@ canvas {
   left: auto;
   right: 70px;
 }
+/* HUD ressources */
+.res-hud{
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  padding: 8px 12px;
+  border: 2px solid #222;
+  border-radius: 10px;
+  background: rgba(255,255,255,.9);
+  font-size: 16px;
+  color: #111;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  user-select: none;
+  z-index: 10002;
+}
+
+/* bouton actif dans le menu outils */
+#fab-tools li.active{
+  background:#dde8ff;
+  border-radius:6px;
+  font-weight:600;
+}
+
+/* harmonise le contour du sous-menu flottant */
+.action ul{
+  border: 2px solid #222;        /* remplace l’ancien blanc translucide */
+}
+
+/* popups argent (utilisés par le JS) */
+.ui.money-float{
+  min-width:80px;
+  text-align:right;
+}

@@ -9,7 +9,9 @@ import URL_STREET_I from "../texture_models/Roads/StreetStraight.glb?url";
 import URL_STREET_X from "../texture_models/Roads/Crosswalk.glb?url";
 import URL_HOUSE    from "../texture_models/Buildings/House.glb?url";
 import URL_BUILDING from "../texture_models/Buildings/Building.glb?url";
-import URL_ANIMATED_WOMAN from "../texture_models/character/AnimatedWoman.glb?url";
+import URL_WELL     from "../texture_models/Buildings/Well.glb?url";
+import URL_TURBINE  from "../texture_models/Buildings/WindTurbine.glb?url";
+import URL_SAWMILL  from "../texture_models/Buildings/FantasySawmill.glb?url";import URL_ANIMATED_WOMAN from "../texture_models/character/AnimatedWoman.glb?url";
 import URL_ANIMATED_WOMAN_2 from "../texture_models/character/AnimatedWoman2.glb?url";
 import URL_BUSINESSMAN from "../texture_models/character/BusinessMan.glb?url";
 import URL_HOODIE_CHARACTER from "../texture_models/character/HoodieCharacter.glb?url";
@@ -27,10 +29,12 @@ let viewSize = 40;
 const CELL = 3 * TILE_SIZE;
 
 const ROAD_COST = 200;
+const WELL_COST = 800;
+const SAWMILL_COST = 1000;
 const HOUSE_COST = 1200;
+const TURBINE_COST = 1500;
 const BUILDING_COST = 5000;
-// Pourcentage de remboursement universel
-const REFUND_RATIO = 0.5; // 50%
+
 
 // === trame unique ===
 const STEP = CELL;
@@ -217,7 +221,7 @@ function showSpend(amount:number){
   };
 }
 
-// ===== HUD Argent =====
+// ===== HUD Argent et Ressources =====
 let money = 200000;
 const hud = document.createElement("div");
 hud.className = "ui panel money-hud";
@@ -226,8 +230,27 @@ const fmtEUR = new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",ma
 function renderMoney(){ hud.textContent = fmtEUR.format(money); }
 renderMoney();
 
+// ----- ressources -----
+let resources = { power: 0, water: 0, food: 0, wood: 0 };
+let production = { power: 0, water: 0, food: 0, wood: 0 };
+
+// conteneur visuel
+const resHud = document.createElement("div");
+resHud.className = "ui panel res-hud";
+
+document.body.appendChild(resHud);
+
+function updateRes(){
+  (document.getElementById("r-power") as HTMLElement).textContent = String(resources.power);
+  (document.getElementById("r-water") as HTMLElement).textContent = String(resources.water);
+  (document.getElementById("r-food")  as HTMLElement).textContent = String(resources.food);
+  (document.getElementById("r-wood")  as HTMLElement).textContent = String(resources.wood);
+}
+updateRes();
+
 // ===== Outils =====
-let mode = "pan";
+type Mode = "pan" | "road" | "house" | "building" | "bulldozer" | "well" | "turbine" | "sawmill";
+let mode: Mode = "pan";
 let cursor:any = null;
 let preview:any = null;
 
@@ -324,8 +347,13 @@ addEventListener("keydown", (e) => {
 
 // ----- contrôles -----
 const controls = new MapControls(camera, renderer.domElement);
-controls.enableRotate=false; controls.screenSpacePanning=true; controls.enableDamping=true;
-controls.mouseButtons.LEFT=null; controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
+controls.enableRotate = false;
+controls.screenSpacePanning = true;
+controls.enableDamping = true;
+(controls.mouseButtons as any).LEFT = undefined;
+(controls.mouseButtons as any).RIGHT = THREE.MOUSE.PAN;
+controls.mouseButtons.LEFT=null; 
+controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
 controls.addEventListener("change",()=> camera.position.y=Math.max(camera.position.y,1));
 controls.target.copy(CAM_TARGET);  // important
 
@@ -367,6 +395,9 @@ function stepCameraRotation(now:number){
 addEventListener("keydown",(e)=>{
   if(e.key==='q'||e.key==='Q'){ e.preventDefault(); rotateCameraQuarter(-1, 300); }
   if(e.key==='e'||e.key==='E'){ e.preventDefault(); rotateCameraQuarter(+1, 300); }
+  if(e.key==="1"){ setActive("well");     showToast("Puits"); }
+  if(e.key==="2"){ setActive("turbine");  showToast("Éolienne"); }
+  if(e.key==="3"){ setActive("sawmill");  showToast("Scierie"); }
 });
 
 // ----- grille + sol -----
@@ -432,15 +463,27 @@ makeCursor();
 // ====== CHARGEMENT DES GLB ======
 const gltfLoader = new GLTFLoader();
 
-type ModelKey = "I"|"L"|"X"|"HOUSE"|"BUILDING";
-interface ModelEntry { path:string; prefab:THREE.Object3D|null; scale:THREE.Vector3; target:[number,number]; }
+type ModelKey = "I"|"L"|"X"|"HOUSE"|"BUILDING"|"WELL"|"TURBINE"|"SAWMILL";
+interface ModelEntry {
+  path:string;
+  prefab:THREE.Object3D|null;
+  scale:THREE.Vector3;
+  target:[number,number];
+  scaleMul:number;     // multiplicateur final
+  baseLift:number;     // offset Y pour poser au sol après scale
+}
+
 const MODELS: Record<ModelKey, ModelEntry> = {
-  I: { path: URL_STREET_I, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
-  L: { path: URL_STREET_L, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
-  X: { path: URL_STREET_X, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
-  HOUSE: { path: URL_HOUSE, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
-  BUILDING: { path: URL_BUILDING, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] }
+  I:{path:URL_STREET_I,prefab:null,scale:new THREE.Vector3(),target:[CELL,CELL],scaleMul:1, baseLift:0},
+  L:{path:URL_STREET_L,prefab:null,scale:new THREE.Vector3(),target:[CELL,CELL],scaleMul:1, baseLift:0},
+  X:{path:URL_STREET_X,prefab:null,scale:new THREE.Vector3(),target:[CELL,CELL],scaleMul:1, baseLift:0},
+  HOUSE:{path:URL_HOUSE,prefab:null,scale:new THREE.Vector3(),target:[CELL,CELL],scaleMul:1, baseLift:0},
+  BUILDING:{path:URL_BUILDING,prefab:null,scale:new THREE.Vector3(),target:[CELL,CELL],scaleMul:1, baseLift:0},
+  WELL:{path:URL_WELL,prefab:null,scale:new THREE.Vector3(),target:[CELL,CELL],scaleMul:0.40, baseLift:0},
+  TURBINE:{path:URL_TURBINE,prefab:null,scale:new THREE.Vector3(),target:[CELL,CELL],scaleMul:0.55, baseLift:0},
+  SAWMILL:{path:URL_SAWMILL,prefab:null,scale:new THREE.Vector3(),target:[CELL,CELL],scaleMul:0.85, baseLift:0},
 };
+
 
 for (const key of Object.keys(MODELS) as ModelKey[]) {
   const entry = MODELS[key];
@@ -455,13 +498,21 @@ for (const key of Object.keys(MODELS) as ModelKey[]) {
       }
     });
     const box = new THREE.Box3().setFromObject(root);
-    const sz = new THREE.Vector3(); box.getSize(sz);
-    const [targetX, targetZ] = entry.target;
-    const sX = (sz.x > 1e-6) ? targetX / sz.x : 1;
-    const sZ = (sz.z > 1e-6) ? targetZ / sz.z : 1;
-    const sY = 0.5 * (sX + sZ);
-    entry.scale.set(sX, sY, sZ);
-    entry.prefab = root;
+const sz = new THREE.Vector3(); box.getSize(sz);
+const [targetX, targetZ] = entry.target;
+
+const sX = (sz.x > 1e-6) ? targetX / sz.x : 1;
+const sZ = (sz.z > 1e-6) ? targetZ / sz.z : 1;
+const sY = 0.5 * (sX + sZ);
+
+// applique le multiplicateur global
+entry.scale.set(sX * entry.scaleMul, sY * entry.scaleMul, sZ * entry.scaleMul);
+
+// calcule le lift pour poser les pieds au sol après scale
+entry.baseLift = (-box.min.y) * entry.scale.y;
+
+// enregistre le prefab
+entry.prefab = root;
     if ((key === piece) || (key === "HOUSE" && mode === "house") || (key === "BUILDING" && mode === "building")) makePreview();
   }, undefined, (e) => console.error("GLB load error:", key, entry.path, e));
 }
@@ -535,30 +586,39 @@ function pickWalkClip(entry: CharEntry): THREE.AnimationClip | null {
 // ----- PREVIEW -----
 function makePreview() {
   if (preview) { scene.remove(preview); preview = null; }
+
   let key: ModelKey;
-  if (mode === "house") key = "HOUSE"; else if (mode === "building") key = "BUILDING"; else key = piece as ModelKey;
+  if (mode === "house") key = "HOUSE";
+  else if (mode === "building") key = "BUILDING";
+  else if (mode === "well") key = "WELL";
+  else if (mode === "turbine") key = "TURBINE";
+  else if (mode === "sawmill") key = "SAWMILL";
+  else key = piece as ModelKey;
+
   const M = MODELS[key];
-  if (!M || !M.prefab) return; // model pas encore chargé
+  if (!M || !M.prefab) return;
+
   const obj = M.prefab.clone(true);
   obj.scale.copy(M.scale);
   obj.rotation.y = ANG[angleIndex];
-  obj.position.y = 0.0006;
-  obj.traverse((n: THREE.Object3D) => {
-    const mesh = n as THREE.Mesh;
-    if ((mesh as any).isMesh && mesh.material) {
-      const baseMat = mesh.material as THREE.Material;
-      const mat = baseMat.clone() as any;
-      mat.transparent = true; mat.opacity = 0.5; mat.depthWrite = false;
-      mesh.material = mat;
+  obj.position.y = Z_PREVIEW + M.baseLift;
+  obj.userData.baseLift = M.baseLift;
+  obj.traverse((n: any) => {
+    if (n.isMesh && n.material) {
+      const m = n.material.clone(); m.transparent = true; m.opacity = 0.5; m.depthWrite = false;
+      n.material = m;
     }
   });
-  obj.userData.isPreview = true;
-  obj.visible = (mode==="road"||mode==="house"||mode==="building");
+  obj.visible = (mode !== "pan");
   preview = obj;
   scene.add(preview);
 }
 function updatePreviewRotation(){ if(preview) preview.rotation.y = ANG[angleIndex]; }
-function updatePreviewPosition(pos:any){ if(preview){ preview.position.set(pos.x, Z_PREVIEW, pos.z); } }
+function updatePreviewPosition(pos:any){
+  if (!preview) return;
+  const lift = preview.userData?.baseLift || 0;
+  preview.position.set(pos.x, Z_PREVIEW + lift, pos.z);
+}
 
 // ====== plaques de sol ======
 const PLATE_INSET = 0; // 0 = couvre toute la case. Mets >0 pour laisser un liseré vert
@@ -585,30 +645,90 @@ function removeGroundPlate(plate:any){
   if (!plate) return;
   scene.remove(plate);
   plate.geometry.dispose();
+  (plate.material as THREE.Material).dispose();
 }
 
 // ----- création d’un objet placé -----
-function buildPlacedObject(kind: string) {
-  let key: ModelKey;
-  if (kind === "house") key = "HOUSE"; else if (kind === "building") key = "BUILDING"; else key = piece as ModelKey;
+function buildPlacedObject(kind: "road"|"house"|"building"|"well"|"turbine"|"sawmill") {
+  let key: ModelKey =
+    kind==="house"    ? "HOUSE" :
+    kind==="building" ? "BUILDING" :
+    kind==="well"     ? "WELL" :
+    kind==="turbine"  ? "TURBINE" :
+    kind==="sawmill"  ? "SAWMILL" :
+    (piece as ModelKey);
+
   const M = MODELS[key];
   if (!M || !M.prefab) return null;
+
   const obj = M.prefab.clone(true);
   obj.scale.copy(M.scale);
   obj.rotation.y = ANG[angleIndex];
-  obj.position.y = Z_ROAD;
-  obj.userData = {
-    cost: kind==="house" ? HOUSE_COST : kind==="building" ? BUILDING_COST : ROAD_COST,
-    kind, piece, angle: angleIndex,
-    groundPlate: null
-  };
+  obj.position.y = Z_ROAD + M.baseLift;
+
+
+  const cost =
+    kind==="house"    ? HOUSE_COST :
+    kind==="building" ? BUILDING_COST :
+    kind==="well"     ? WELL_COST :
+    kind==="turbine"  ? TURBINE_COST :
+    kind==="sawmill"  ? SAWMILL_COST : ROAD_COST;
+
+  obj.userData = { cost, kind, piece, angle: angleIndex, groundPlate: null };
   return obj;
 }
+
 
 // ----- placement/suppression -----
 const roads    = new Map<string,THREE.Object3D>();
 const houses   = new Map<string,THREE.Object3D>();
 const buildings= new Map<string,THREE.Object3D>();
+const wells    = new Map<string,THREE.Object3D>();
+const turbines = new Map<string,THREE.Object3D>();
+const sawmills = new Map<string,THREE.Object3D>();
+// ====== Ajout des bâtiments manquants : Well, Turbine, Sawmill ======
+function placeWell(wx:number, wz:number){
+  if (money < WELL_COST) { lastPlaceError="money"; return false; }
+  const id = keyFromCenter(wx, wz);
+  if (roads.has(id)||houses.has(id)||buildings.has(id)||wells.has(id)||turbines.has(id)||sawmills.has(id)) { lastPlaceError="occupied"; return false; }
+  if (!hasAdjacentRoad(wx, wz)) { lastPlaceError="no_road"; return false; }
+  const obj = buildPlacedObject("well"); if(!obj){ lastPlaceError="model"; return false; }
+  obj.position.set(wx, obj.position.y, wz);
+  scene.add(obj);
+  wells.set(id, obj);
+  money -= WELL_COST; renderMoney(); showSpend(WELL_COST);
+  resources.water += 10; updateRes();
+  lastPlaceError=""; return true;
+}
+
+function placeTurbine(wx:number, wz:number){
+  if (money < TURBINE_COST) { lastPlaceError="money"; return false; }
+  const id = keyFromCenter(wx, wz);
+  if (roads.has(id)||houses.has(id)||buildings.has(id)||wells.has(id)||turbines.has(id)||sawmills.has(id)) { lastPlaceError="occupied"; return false; }
+  if (!hasAdjacentRoad(wx, wz)) { lastPlaceError="no_road"; return false; }
+  const obj = buildPlacedObject("turbine"); if(!obj){ lastPlaceError="model"; return false; }
+  obj.position.set(wx, Z_ROAD, wz);
+  scene.add(obj);
+  turbines.set(id, obj);
+  money -= TURBINE_COST; renderMoney(); showSpend(TURBINE_COST);
+  resources.power += 10; updateRes();
+  lastPlaceError=""; return true;
+}
+
+function placeSawmill(wx:number, wz:number){
+  if (money < SAWMILL_COST) { lastPlaceError="money"; return false; }
+  const id = keyFromCenter(wx, wz);
+  if (roads.has(id)||houses.has(id)||buildings.has(id)||wells.has(id)||turbines.has(id)||sawmills.has(id)) { lastPlaceError="occupied"; return false; }
+  if (!hasAdjacentRoad(wx, wz)) { lastPlaceError="no_road"; return false; }
+  const obj = buildPlacedObject("sawmill"); if(!obj){ lastPlaceError="model"; return false; }
+  obj.position.set(wx, Z_ROAD, wz);
+  scene.add(obj);
+  sawmills.set(id, obj);
+  money -= SAWMILL_COST; renderMoney(); showSpend(SAWMILL_COST);
+  resources.wood += 10; updateRes();
+  lastPlaceError=""; return true;
+}
+
 function keyFromCenter(wx:any,wz:any){ return `${wx}:${wz}`; }
 
 function hasAdjacentRoad(wx:any,wz:any){
@@ -979,47 +1099,66 @@ function placeBuilding(wx:any,wz:any){
 
 function eraseAtPointer(event:any){
   if (overUI(event)) return;
-  mouse.x=(event.clientX/innerWidth)*2-1; mouse.y=-(event.clientY/innerHeight)*2+1;
+
+  mouse.x = (event.clientX/innerWidth)*2-1;
+  mouse.y = -(event.clientY/innerHeight)*2+1;
   raycaster.setFromCamera(mouse,camera);
-  const pool = [...roads.values(), ...houses.values(), ...buildings.values()];
-  const hits=raycaster.intersectObjects(pool, true); if(!hits.length) return;
+
+  // inclut routes + maisons + immeubles + puits + éoliennes + scieries
+  const pool = [
+    ...roads.values(), ...houses.values(), ...buildings.values(),
+    ...wells.values(), ...turbines.values(), ...sawmills.values()
+  ];
+  const hits = raycaster.intersectObjects(pool, true);
+  if (!hits.length) return;
+
+  // remonte au root placé
   let node:any = hits[0].object, root:any = null;
   for(;;){
-    if (pool.includes(node)) { root=node; break; }
-    if (!node.parent||node.parent===scene) break; node=node.parent;
+    if (pool.includes(node)) { root = node; break; }
+    if (!node.parent || node.parent===scene) break;
+    node = node.parent;
   }
-  if(!root) return;
-  let hitKey:any=null, bag:any=null;
-  for(const [k,m] of roads.entries())      if(m===root){ hitKey=k; bag=roads;      break; }
-  if(!hitKey) for(const [k,m] of houses.entries())    if(m===root){ hitKey=k; bag=houses;    break; }
-  if(!hitKey) for(const [k,m] of buildings.entries()) if(m===root){ hitKey=k; bag=buildings; break; }
-  if(!hitKey) return;
+  if (!root) return;
 
-  // (Citoyens animés globaux: rien de spécifique à retirer ici)
+  // identifie la clé, le sac et le type
+  let hitKey:string|undefined, bag:Map<string,THREE.Object3D>|undefined;
+  let kind:'road'|'house'|'building'|'well'|'turbine'|'sawmill'|null = null;
 
+  for (const [k,m] of roads.entries())      if (m===root){ hitKey=k; bag=roads;      kind='road'; break; }
+  if (!hitKey) for (const [k,m] of houses.entries())     if (m===root){ hitKey=k; bag=houses;     kind='house'; break; }
+  if (!hitKey) for (const [k,m] of buildings.entries())  if (m===root){ hitKey=k; bag=buildings;  kind='building'; break; }
+  if (!hitKey) for (const [k,m] of wells.entries())      if (m===root){ hitKey=k; bag=wells;      kind='well'; break; }
+  if (!hitKey) for (const [k,m] of turbines.entries())   if (m===root){ hitKey=k; bag=turbines;   kind='turbine'; break; }
+  if (!hitKey) for (const [k,m] of sawmills.entries())   if (m===root){ hitKey=k; bag=sawmills;   kind='sawmill'; break; }
+  if (!hitKey || !bag || !kind) return;
+
+  // retire PNJ et plaque si présents
+  if (kind==='house' || kind==='building') removeCitizensOfLot(hitKey);
   removeGroundPlate(root.userData?.groundPlate);
 
+  // ajustements de ressources
+  if (kind==='well')     { resources.water  = Math.max(0, resources.water  - 10); updateRes(); }
+  if (kind==='turbine')  { resources.power  = Math.max(0, resources.power  - 10); updateRes(); }
+  if (kind==='sawmill')  { resources.wood   = Math.max(0, resources.wood   - 10); updateRes(); }
+
+  // suppression et nettoyage
   scene.remove(root);
-  root.traverse((n: THREE.Object3D) => {
-    const mesh = n as THREE.Mesh;
-    if ((mesh as any).isMesh) {
-      (mesh.geometry as any)?.dispose();
-      const mat: any = mesh.material;
-      if (mat?.map) mat.map.dispose();
-      mat?.dispose?.();
+  root.traverse((n:any)=>{
+    if (n.isMesh){
+      n.geometry?.dispose?.();
+      const m:any = n.material;
+      if (m?.map) m.map.dispose();
+      m?.dispose?.();
     }
   });
-  if (bag) bag.delete(hitKey as any);
-  // Remboursement universel basé sur REFUND_RATIO
+  bag.delete(hitKey);
+
+  // remboursement: route 100%, le reste 50%
   const full = root.userData?.cost ?? 0;
-  const refund = Math.round(full * REFUND_RATIO);
-  if (refund > 0 && full > 0) {
-    money += refund;
-    renderMoney();
-    showRefund(refund);
-    // Debug (désactive si inutile)
-    // console.debug(`[REFUND] kind=${root.userData?.kind} cost=${full} refund=${refund}`);
-  }
+  const refund = (kind==='road') ? full : Math.round(full*0.5);
+  money += refund; renderMoney();
+  if (refund>0) showRefund(refund);
 }
 
 // ----- interactions -----
@@ -1052,31 +1191,32 @@ addEventListener("pointermove", e=>{
   if (mode === "road" && painting) placeRoad(s.x, s.z);
   if (mode === "house" && painting) placeHouse(s.x, s.z);
   if (mode === "building" && painting) placeBuilding(s.x, s.z);
-  if (mode === "bulldozer" && painting) eraseAtPointer(e);
+  if (mode === "well"     && painting) placeWell(s.x, s.z);
+  if (mode === "turbine"  && painting) placeTurbine(s.x, s.z);
+  if (mode === "sawmill"  && painting) placeSawmill(s.x, s.z);
 });
 
 addEventListener("pointerdown", e=>{
   if (overUI(e)) return;
-  if(e.button===0){
-    if(mode==="road"||mode==="house"||mode==="building"){
-      const p=screenToGround(e); if(!p) return; const s=snapToCell(p);
-      painting=true;
-      let ok=false;
-      if(mode==="road")      ok = placeRoad(s.x,s.z);
-      if(mode==="house")     ok = placeHouse(s.x,s.z);
-      if(mode==="building")  ok = placeBuilding(s.x,s.z);
-      if(!ok && (mode==="house"||mode==="building") && lastPlaceError==="no_road"){
-        showToast("Besoin d’une route adjacente pour placer ici");
-      }
-    } else if(mode==="bulldozer"){ painting=true; eraseAtPointer(e); }
-  } else if(e.button===2){
-    if (mode === "road" || mode === "house" || mode === "building") {
-      e.preventDefault(); cancelPlacement();
-    } else if (mode === "bulldozer") {
-      e.preventDefault(); setActive("pan"); showToast("Bulldozer annulé");
-    } else {
-      e.preventDefault();
+  if (e.button===0){
+    const p = screenToGround(e); if(!p) return; const s = snapToCell(p);
+    painting = true;
+    let ok = false;
+    if (mode==="road")      ok = placeRoad(s.x,s.z);
+    else if (mode==="house")     ok = placeHouse(s.x,s.z);
+    else if (mode==="building")  ok = placeBuilding(s.x,s.z);
+    else if (mode==="well")      ok = placeWell(s.x,s.z);
+    else if (mode==="turbine")   ok = placeTurbine(s.x,s.z);
+    else if (mode==="sawmill")   ok = placeSawmill(s.x,s.z);
+    else if (mode==="bulldozer") { eraseAtPointer(e); ok = true; }
+
+    if(!ok && (mode==="house"||mode==="building") && lastPlaceError==="no_road"){
+      showToast("Besoin d’une route adjacente pour placer ici");
     }
+  } else if (e.button===2){
+    e.preventDefault();
+    if (mode==="bulldozer") { setActive("pan"); showToast("Bulldozer annulé"); }
+    else if (mode!=="pan")  { cancelPlacement(); }
   }
 });
 addEventListener("pointerup", ()=> painting=false);
