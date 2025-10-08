@@ -230,9 +230,7 @@ renderMoney();
 
 // ----- ressources -----
 let resources = { power: 0, water: 0, food: 0, wood: 0 };
-let production = { power: 0, water: 0, food: 0, wood: 0 };
 
-const resHud = document.getElementById("res-hud") as HTMLElement;
 
 function updateRes(){
   const p = document.getElementById("r-power");
