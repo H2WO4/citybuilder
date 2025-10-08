@@ -4,14 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>City Builder</title>
-  <link rel="stylesheet" href="/styles/main.css">
+  <link rel="stylesheet" href="/styles/main.scss">
 </head>
 <body>
-  <!-- scripts -->
-  <script type="module" src="./src/main.ts"></script>
 
-  <!-- menu principal -->
-  <div class="action ui" id="fab" aria-label="Menu actions" role="button" style="z-index:10001;">
+  <div class="action ui" id="fab" aria-label="Menu actions" role="button">
     <span>+</span>
     <ul id="fab-tools">
       <li data-tool="pan">🖐️ Navigation</li>
@@ -25,17 +22,22 @@
     </ul>
   </div>
 
-  <!-- HUD argent -->
   <div class="ui panel money-hud" id="money-hud"></div>
 
-  <!-- HUD ressources -->
   <div class="ui panel res-hud" id="res-hud">
-    <b>Ressources</b><br>
     ⚡ <span id="r-power">0</span>&nbsp;
     💧 <span id="r-water">0</span>&nbsp;
     🍖 <span id="r-food">0</span>&nbsp;
     🪵 <span id="r-wood">0</span>
   </div>
 
+  <div class="ui panel fps-hud" id="fps-hud">— FPS</div>
+
+ 
+  <div class="ui toast" id="toast"></div>
+  <div class="ui money-popups" id="money-popups"></div>
+
+  
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
