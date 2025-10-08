@@ -16,8 +16,10 @@ import URL_CHAR_W1 from "../texture_models/character/AnimatedWoman.glb?url";
 import URL_CHAR_W2 from "../texture_models/character/AnimatedWoman2.glb?url";
 import URL_CHAR_BM from "../texture_models/character/BusinessMan.glb?url";
 import URL_CHAR_HD from "../texture_models/character/HoodieCharacter.glb?url";
+
 import * as UI from "./ui";
 
+// Init
 UI.init();
 
 // ----- paramètres -----
@@ -286,14 +288,8 @@ function setActive(m: any) {
     makePreview();
     if (preview) preview.visible = !overUI(lastPointerEvent);
   } else if (m === "bulldozer") {
-    // créer une "preview" rouge simple pour feedback (carré rouge sur la cellule)
+    // Mode bulldozer: pas de preview séparée pour éviter double overlay, seul le curseur (rouge) sert de feedback
     if (preview) { scene.remove(preview); preview = null; }
-    const geo = GEO_PLACEMENT.clone();
-    const mat = new THREE.MeshBasicMaterial({ color:0xff0000, transparent:true, opacity:0.25 });
-    const plate = new THREE.Mesh(geo, mat);
-    plate.position.y = 0.0006;
-    preview = plate;
-    scene.add(preview);
   } else {
     if (preview) preview.visible = false;
   }
@@ -940,10 +936,10 @@ addEventListener("pointermove", e=>{
   const s = snapToCell(p);
   if (cursor) { cursor.visible = (mode !== "pan"); cursor.position.set(s.x, 0.001, s.z); }
   if (preview) {
-    if (mode === "road" || mode === "house" || mode === "building" || mode === 'bulldozer') {
+    if (mode === "road" || mode === "house" || mode === "building") {
       preview.visible = true;
       updatePreviewPosition(s);
-      if (mode !== 'bulldozer') updatePreviewRotation();
+      updatePreviewRotation();
     } else {
       preview.visible = false;
     }

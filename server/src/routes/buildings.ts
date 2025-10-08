@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 
-import { APP } from "..";
+import { APP } from '..';
 import { Buildings } from '../models/building';
 
 export function init() {
