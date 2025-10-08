@@ -32,7 +32,7 @@ async function post_one(req: Request, res: Response) {
   let type = req.body.type
 
   try {
-    let result = await Buildings.insertOne({ city, position, orientation, type })
+    let result = await Buildings.insertOne({ city, type, position, orientation })
 
     res
       .status(201)

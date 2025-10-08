@@ -26,12 +26,13 @@ export async function up(db) {
   await db.createCollection("buildings", {
     validator: {
       $jsonSchema: {
-        required: ["_id", "city", "position", "orientation", "type"],
+        required: ["_id", "city", "type", "position", "orientation"],
 
         properties: {
           _id: { bsonType: "objectId" },
-
           city: { bsonType: "objectId" },
+
+          type: { bsonType: "string" },
 
           position: {
             bsonType: "object",
@@ -44,17 +45,6 @@ export async function up(db) {
           orientation: {
             enum: ["n", "s", "e", "w"]
           },
-
-          type: {
-            enum: [
-              "residential",
-              "commercial",
-              "industry",
-              "entertainment",
-              "services"
-            ],
-
-          }
         },
         additionalProperties: false
       }
@@ -93,7 +83,7 @@ export async function up(db) {
 }
 
 export async function down(db) {
-  await db.dropCollection("cities");
-  await db.dropCollection("buildings");
-  await db.dropCollection("contracts");
+  await db.collection("cities").drop();
+  await db.collection("buildings").drop();
+  await db.collection("contracts").drop();
 }

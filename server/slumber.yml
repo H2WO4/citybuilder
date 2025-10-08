@@ -4,6 +4,7 @@ name: Server
 
 .base_profile_data:
   city_id: "{{ response('c_get_all', trigger='always') | jsonpath('$[*]._id', mode='array') | select() }}"
+  building_type: "{{ select(['house', 'apartments', 'wind_turbine'], message='Type') }}"
 
 profiles:
   local:
@@ -54,8 +55,8 @@ requests:
           type: json
           data:
             city: "{{ city_id }}"
+            type: "{{ building_type }}"
             position:
               x: "{{ prompt(message='X Coordinate') | integer() }}"
               y: "{{ prompt(message='Y Coordinate') | integer() }}"
             orientation: "{{ select(['n', 's', 'e', 'w'], message='Orientation') }}"
-            type: "{{ select(['residential', 'commercial', 'industry', 'entertainment', 'services'], message='Type') }}"
