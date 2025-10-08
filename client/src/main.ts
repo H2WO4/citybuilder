@@ -16,7 +16,6 @@ import URL_ANIMATED_WOMAN from "../texture_models/character/AnimatedWoman.glb?ur
 import URL_ANIMATED_WOMAN_2 from "../texture_models/character/AnimatedWoman2.glb?url";
 import URL_BUSINESSMAN from "../texture_models/character/BusinessMan.glb?url";
 import URL_HOODIE_CHARACTER from "../texture_models/character/HoodieCharacter.glb?url";
-// Import utilitaire pour cloner les modèles skinnés
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import * as UI from "./ui";
 
@@ -80,87 +79,47 @@ const stats = new Stats();
 stats.showPanel(0);
 stats.dom.style.display = "none";
 document.body.appendChild(stats.dom);
-const fpsHud = document.createElement("div");
-fpsHud.textContent = "— FPS";
-fpsHud.className = "ui panel fps-hud";
-document.body.appendChild(fpsHud);
+const fpsHud = document.getElementById("fps-hud") as HTMLDivElement;
 
 // ===== toast =====
-const toast = document.createElement("div");
-Object.assign(toast.style, {
-  position:"fixed", top:"64px", left:"50%", transform:"translateX(-50%)",
-  padding:"6px 10px", border:"1px solid #222", borderRadius:"8px",
-  background:"rgba(255,255,255,0.95)", fontFamily:"system-ui, sans-serif",
-  fontSize:"14px", color:"#111", boxShadow:"0 2px 8px rgba(0,0,0,0.15)",
-  pointerEvents:"none", zIndex:"10000", opacity:"0", transition:"opacity .15s"
-});
-toast.className = "ui";
-document.body.appendChild(toast);
+const toast = document.getElementById("toast") as HTMLDivElement;
 let toastT:any=null;
 function showToast(msg:any){
+  if (!toast) return;
   toast.textContent = msg;
   toast.style.opacity = "1";
   clearTimeout(toastT);
   toastT = setTimeout(() => toast.style.opacity = "0", 1200);
 }
 
-// ----- POPUPS MONETAIRES (stack + agrégation remboursements) -----
 interface MoneyPopupAggregate { amount:number; element:HTMLDivElement; timeout:any; lastTime:number; }
-const moneyPopupContainer = document.createElement('div');
-moneyPopupContainer.style.position = 'fixed';
-moneyPopupContainer.style.top = '60px';
-moneyPopupContainer.style.right = '14px';
-moneyPopupContainer.style.display = 'flex';
-moneyPopupContainer.style.flexDirection = 'column';
-moneyPopupContainer.style.alignItems = 'flex-end';
-moneyPopupContainer.style.gap = '4px';
-moneyPopupContainer.style.zIndex = '10002';
-document.body.appendChild(moneyPopupContainer);
+const moneyPopupContainer = document.getElementById("money-popups") as HTMLDivElement;
 
-const REFUND_AGG_WINDOW = 450; // ms pour grouper plusieurs remboursements rapides
+const REFUND_AGG_WINDOW = 450; 
 let refundAggregate: MoneyPopupAggregate | null = null;
-const SPEND_AGG_WINDOW = 450;  // ms pour grouper plusieurs dépenses rapides
+const SPEND_AGG_WINDOW = 450;  
 let spendAggregate: MoneyPopupAggregate | null = null;
 
 function createMoneyPopup(text:string, color:string, key:string, pulse:boolean=false){
   const div = document.createElement('div');
-  div.className = 'ui money-float';
-  Object.assign(div.style, {
-    background:'rgba(255,255,255,0.95)',
-    color,
-    fontWeight:'600',
-    padding:'4px 10px',
-    fontFamily:'system-ui, sans-serif',
-    fontSize:'14px',
-    borderRadius:'8px',
-    boxShadow:'0 2px 8px rgba(0,0,0,0.15)',
-    pointerEvents:'none',
-    opacity:'0',
-    transform:'translateY(-6px)',
-    transition:'opacity .25s, transform .4s',
-    position:'relative',
-    minWidth:'80px',
-    textAlign:'right'
-  });
-  div.dataset.kind = key;
+ 
+  div.className = `ui money-float money-float--${key}`;
   div.textContent = text;
   moneyPopupContainer.appendChild(div);
+
+  
   requestAnimationFrame(()=>{
-    div.style.opacity='1';
-    div.style.transform='translateY(0)';
-    if(pulse){
-      div.animate([
-        { transform:'translateY(0) scale(1.0)' },
-        { transform:'translateY(0) scale(1.07)' },
-        { transform:'translateY(0) scale(1.0)' }
-      ], { duration:260, easing:'ease-out' });
+    div.classList.add('show');
+    if (pulse) {
+      div.classList.add('pulse');
     }
   });
+
   setTimeout(()=>{
-    div.style.opacity='0';
-    div.style.transform='translateY(-6px)';
+    div.classList.remove('show');
     setTimeout(()=> div.remove(), 400);
   }, 1500);
+
   return div;
 }
 
@@ -170,27 +129,25 @@ function showRefund(amount:number){
     refundAggregate.amount += amount;
     refundAggregate.lastTime = now;
     refundAggregate.element.textContent = '+'+fmtEUR.format(refundAggregate.amount);
-    refundAggregate.element.style.color = '#0f7d1f';
-    refundAggregate.element.animate([
-      { transform:'translateY(0) scale(1.0)' },
-      { transform:'translateY(0) scale(1.1)' },
-      { transform:'translateY(0) scale(1.0)' }
-    ], { duration:300, easing:'ease-out' });
+    refundAggregate.element.classList.add('pulse');
     clearTimeout(refundAggregate.timeout);
     refundAggregate.timeout = setTimeout(()=>{
-      const el = refundAggregate?.element; if(el){ el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); }
+      const el = refundAggregate?.element;
+      if(el){ el.classList.remove('show'); el.classList.add('hide'); setTimeout(()=> el.remove(),400); }
       refundAggregate = null;
-    }, 1500);
+    },1500);
     return;
   }
-  // créer un nouveau popup agrégé
-  const el = createMoneyPopup('+'+fmtEUR.format(amount), '#0f7d1f', 'refund', true);
+
+  const el = createMoneyPopup('+'+fmtEUR.format(amount), '', 'refund', true);
   refundAggregate = {
     amount,
     element: el,
     lastTime: now,
     timeout: setTimeout(()=>{
-      el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); refundAggregate=null; }, 1500)
+      el.classList.remove('show'); el.classList.add('hide'); setTimeout(()=> el.remove(),400);
+      refundAggregate = null;
+    },1500)
   };
 }
 
@@ -200,25 +157,25 @@ function showSpend(amount:number){
     spendAggregate.amount += amount;
     spendAggregate.lastTime = now;
     spendAggregate.element.textContent = '-'+fmtEUR.format(spendAggregate.amount);
-    spendAggregate.element.style.color = '#b51212';
-    spendAggregate.element.animate([
-      { transform:'translateY(0) scale(1.0)' },
-      { transform:'translateY(0) scale(1.1)' },
-      { transform:'translateY(0) scale(1.0)' }
-    ], { duration:300, easing:'ease-out' });
+    spendAggregate.element.classList.add('pulse');
     clearTimeout(spendAggregate.timeout);
     spendAggregate.timeout = setTimeout(()=>{
-      const el = spendAggregate?.element; if(el){ el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); }
+      const el = spendAggregate?.element;
+      if(el){ el.classList.remove('show'); el.classList.add('hide'); setTimeout(()=> el.remove(),400); }
       spendAggregate = null;
-    }, 1500);
+    },1500);
     return;
   }
-  const el = createMoneyPopup('-'+fmtEUR.format(amount), '#b51212', 'spend', true);
+
+  const el = createMoneyPopup('-'+fmtEUR.format(amount), '', 'spend', true);
   spendAggregate = {
     amount,
     element: el,
     lastTime: now,
-    timeout: setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); spendAggregate=null; }, 1500)
+    timeout: setTimeout(()=>{
+      el.classList.remove('show'); el.classList.add('hide'); setTimeout(()=> el.remove(),400);
+      spendAggregate = null;
+    },1500)
   };
 }
 
@@ -266,7 +223,8 @@ function setActive(m: any) {
   const prevMode = mode;
   mode = m;
   updateFabActive();
-  document.body.style.cursor = (m==="road"||m==="house"||m==="building")?"crosshair":m==="bulldozer"?"not-allowed":"default";
+  const isBuild = m==="road"||m==="house"||m==="building"||m==="well"||m==="turbine"||m==="sawmill";
+  document.body.style.cursor = isBuild ? "crosshair" : m==="bulldozer" ? "not-allowed" : "default";
   if (typeof grid !== "undefined") grid.visible = (m !== "pan");
 
   // Adapter la couleur du curseur selon le mode
@@ -283,15 +241,12 @@ function setActive(m: any) {
   }
 
   // For build modes always recreate preview to ensure correct model (fix house showing road)
-  if (m === "road" || m === "house" || m === "building") {
-    makePreview();
-    if (preview) preview.visible = !overUI(lastPointerEvent);
-  } else if (m === "bulldozer") {
-    // Mode bulldozer: pas de preview séparée pour éviter double overlay, seul le curseur (rouge) sert de feedback
-    if (preview) { scene.remove(preview); preview = null; }
-  } else {
-    if (preview) preview.visible = false;
-  }
+  if (isBuild) {
+  makePreview();
+  if (preview) preview.visible = !overUI(lastPointerEvent);
+} else if (m === "bulldozer") {
+
+}
 
   // Reset rotation index if switching between categories? (Keep orientation consistent, so do nothing.)
   // If leaving a build mode clear painting state
@@ -392,11 +347,13 @@ function stepCameraRotation(now:number){
   if (k >= 1) camRotAnim = null;
 }
 addEventListener("keydown",(e)=>{
-  if(e.key==='q'||e.key==='Q'){ e.preventDefault(); rotateCameraQuarter(-1, 300); }
-  if(e.key==='e'||e.key==='E'){ e.preventDefault(); rotateCameraQuarter(+1, 300); }
-  if(e.key==="1"){ setActive("well");     showToast("Puits"); }
-  if(e.key==="2"){ setActive("turbine");  showToast("Éolienne"); }
-  if(e.key==="3"){ setActive("sawmill");  showToast("Scierie"); }
+  const rotatable = mode==="road"||mode==="house"||mode==="building"||mode==="well"||mode==="turbine"||mode==="sawmill";
+  if ((e.key==="a"||e.key==="A") && rotatable){
+    e.preventDefault();
+    angleIndex = (angleIndex + 1) & 3;
+    updateCursorOrient();
+    updatePreviewRotation();   // fait pivoter la preview
+  }
 });
 
 // ----- grille + sol -----
@@ -1183,14 +1140,14 @@ addEventListener("pointermove", e=>{
   const s = snapToCell(p);
   if (cursor) { cursor.visible = (mode !== "pan"); cursor.position.set(s.x, 0.001, s.z); }
   if (preview) {
-    if (mode === "road" || mode === "house" || mode === "building") {
-      preview.visible = true;
-      updatePreviewPosition(s);
-      updatePreviewRotation();
-    } else {
-      preview.visible = false;
-    }
+  const isBuild = mode==="road"||mode==="house"||mode==="building"||mode==="well"||mode==="turbine"||mode==="sawmill";
+  preview.visible = isBuild;
+  if (isBuild) {
+    updatePreviewPosition(s);
+    updatePreviewRotation();
   }
+}
+
   if (mode === "road" && painting) placeRoad(s.x, s.z);
   if (mode === "house" && painting) placeHouse(s.x, s.z);
   if (mode === "building" && painting) placeBuilding(s.x, s.z);
