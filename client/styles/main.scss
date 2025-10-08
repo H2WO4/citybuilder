@@ -109,28 +109,35 @@ canvas {
   background: #f2f2f2;
 }
 
-/* Floating action menu (optional) */
+/* Floating action menu (single canonical definition) */
 .action {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 60px;
-  height: 60px;
+  bottom: 50px;
+  left: 50px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #2563eb; /* solid to avoid translucent halo */
   color: #fff;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
-  font-size: 34px;
+  font-size: 32px;
   user-select: none;
+  outline: none;
+  border: none;
+  transition: background-color .25s, box-shadow .25s, transform .25s;
+  will-change: transform;
+  z-index: 4000;
 }
 
-.action span {
-  pointer-events: none;
-}
+.action:hover { background:#1e4fb9; }
+.action:active { background:#173d90; }
+.action:focus, .action:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(255,255,255,.35),0 4px 12px rgba(0,0,0,.35); }
+
+.action span { pointer-events:none; position:relative; width:100%; height:100%; display:flex; justify-content:center; align-items:center; transition:.3s ease-in-out; }
 
 /* (supprimé : ancienne ouverture verticale) */
 .action ul li {
@@ -174,29 +181,7 @@ canvas {
   border-radius: 3px;
 }
 
-.action {
-  position: fixed;
-  bottom: 50px;
-  left: 50px;
-  width: 50px;
-  height: 50px;
-  background: #c53d3d00;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 5px 5px rgba(255, 255, 255, 0);
-}
-
-.action span {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #ffffff;
-  font-size: 2em;
-  transition: .3s ease-in-out;
-}
+/* (Removed duplicate .action block with transparent background that caused halo) */
 
 .action.active span {
   transform: rotate(135deg);
@@ -212,7 +197,7 @@ canvas {
   left: 70px;
   background: #fdfdfd;
   min-width: 220px;
-  border: 2px solid #ffffff;
+  border: 2px solid rgba(255,255,255,0.8);
   border-radius: 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
   opacity: 0;
@@ -244,9 +229,7 @@ canvas {
   font-weight: 600;
 }
 
-.action ul li:not(:last-child) {
-  border-bottom: 1p x solid rgba(0, 0, 0, 0);
-}
+.action ul li:not(:last-child) { border-bottom: 1px solid rgba(0,0,0,0); }
 
 .action ul li img {
   margin-right: 15px;
