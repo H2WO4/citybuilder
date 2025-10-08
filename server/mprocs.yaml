@@ -1,7 +1,10 @@
 procs:
+  # Front
   server-run:
     shell: yarn start
     autostart: false
+
+  # DB
   db-start:
     shell: docker compose up
     autostart: false

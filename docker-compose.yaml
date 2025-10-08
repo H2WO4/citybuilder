@@ -1,12 +1,16 @@
 services:
-  # server:
-  #   build: server
-  #   ports:
-  #     - 3000:3000
-  #   environment:
-  #     DB_HOST: db
-  #     DB_PORT: 27017
-  #     DB_BASE: main
+  server:
+    build: server
+    ports:
+      - 3000:3000
+    depends_on:
+      - db
+    profiles:
+      - backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 27017
+      DB_BASE: main
   db:
     image: mongo:8-noble
     ports:

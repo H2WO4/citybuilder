@@ -1,0 +1,10 @@
+procs:
+  # Front
+  client-run:
+    cwd: client
+    shell: yarn dev
+    autostart: false
+  client-preview:
+    cwd: client
+    shell: yarn preview
+    autostart: false
