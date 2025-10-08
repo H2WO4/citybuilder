@@ -1,23 +1,3 @@
-import type { UUIDTypes as UUID } from "uuid";
-
-export interface City {
-  _id: UUID,
-  name: string,
-}
-
-export interface Building {
-  _id: UUID,
-  city: UUID,
-
-  type: string,
-
-  position: {
-    x: number,
-    y: number,
-  },
-  orientation: "n" | "s" | "e" | "w"
-}
-
 export enum BuildingClass {
   Residential,
   Commercial,
@@ -45,4 +25,3 @@ export interface BuildingType {
     food?: number,
   }
 }
-
