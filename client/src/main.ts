@@ -9,10 +9,12 @@ import URL_STREET_I from "../texture_models/Roads/StreetStraight.glb?url";
 import URL_STREET_X from "../texture_models/Roads/Crosswalk.glb?url";
 import URL_HOUSE    from "../texture_models/Buildings/House.glb?url";
 import URL_BUILDING from "../texture_models/Buildings/Building.glb?url";
-import URL_CHAR_W1 from "../texture_models/character/AnimatedWoman.glb?url";
-import URL_CHAR_W2 from "../texture_models/character/AnimatedWoman2.glb?url";
-import URL_CHAR_BM from "../texture_models/character/BusinessMan.glb?url";
-import URL_CHAR_HD from "../texture_models/character/HoodieCharacter.glb?url";
+import URL_ANIMATED_WOMAN from "../texture_models/character/AnimatedWoman.glb?url";
+import URL_ANIMATED_WOMAN_2 from "../texture_models/character/AnimatedWoman2.glb?url";
+import URL_BUSINESSMAN from "../texture_models/character/BusinessMan.glb?url";
+import URL_HOODIE_CHARACTER from "../texture_models/character/HoodieCharacter.glb?url";
+// Import utilitaire pour cloner les modèles skinnés
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import * as UI from "./ui";
 
 UI.init();
@@ -466,6 +468,8 @@ for (const key of Object.keys(MODELS) as ModelKey[]) {
 type CharEntry = {
   path: string;
   prefab: THREE.Object3D | null;
+  // clips d'animation extraits du GLB
+  clips: THREE.AnimationClip[];
   // échelle d'origine du root du GLB (certains ≠ 1)
   baseScale: THREE.Vector3;
   // facteur de normalisation vers une taille humaine cible
@@ -475,10 +479,10 @@ type CharEntry = {
 };
 
 const CHAR_MODELS: CharEntry[] = [
-  { path: URL_CHAR_W1, prefab: null, baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
-  { path: URL_CHAR_W2, prefab: null, baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
-  { path: URL_CHAR_BM, prefab: null, baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
-  { path: URL_CHAR_HD, prefab: null, baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
+  { path: URL_ANIMATED_WOMAN, prefab: null, clips: [], baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
+  { path: URL_ANIMATED_WOMAN_2, prefab: null, clips: [], baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
+  { path: URL_BUSINESSMAN, prefab: null, clips: [], baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
+  { path: URL_HOODIE_CHARACTER, prefab: null, clips: [], baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
 ];
 
 const TARGET_H = 0.70;     // taille humaine cible dans ta scène
@@ -507,6 +511,7 @@ for (const C of CHAR_MODELS) {
 
       root.traverse((o:any)=>{ if(o.isMesh){ o.castShadow = o.receiveShadow = true; }});
       C.prefab = root;
+      C.clips = g.animations || [];
     },
     undefined,
     (e)=> console.error("GLB PNJ load error:", C.path, e)
@@ -517,6 +522,13 @@ function pickChar(): CharEntry | null {
   const ready = CHAR_MODELS.filter(c => !!c.prefab);
   if (!ready.length) return null;
   return ready[(Math.random() * ready.length) | 0];
+}
+
+function pickWalkClip(entry: CharEntry): THREE.AnimationClip | null {
+  if (!entry.clips.length) return null;
+  // cherche clip contenant "walk" ou "Walk"
+  const clip = entry.clips.find(c => /walk/i.test(c.name)) || entry.clips[0];
+  return clip || null;
 }
 
 // ----- PREVIEW -----
@@ -607,8 +619,40 @@ function hasAdjacentRoad(wx:any,wz:any){
   );
 }
 
-// ====== CITOYENS (AJOUT) ======
-const citizensByLot = new Map<string, THREE.Object3D[]>();
+// ====== PROMENEURS ANIMÉS ======
+interface Walker {
+  obj: THREE.Object3D;
+  mixer: THREE.AnimationMixer;
+  walkAction?: THREE.AnimationAction | null;
+  dir: THREE.Vector3;          // direction linéaire (normalisée)
+  speed: number;               // unités / sec
+  life: number;                // temps restant (s)
+  tileX: number;               // centre route courant (x)
+  tileZ: number;               // centre route courant (z)
+  axis: 'x'|'z';               // axe principal du déplacement
+  lateralPhase: number;        // phase pour oscillation latérale
+  lateralFreq: number;         // fréquence (rad/s)
+  lateralAmp: number;          // amplitude max
+  prevLat: number;             // précédent offset latéral appliqué
+  perp: THREE.Vector3;         // vecteur perpendiculaire pour jitter
+  state: 'walk' | 'turn' | 'idle';
+  turnT: number;               // temps écoulé dans la rotation
+  turnDur: number;             // durée de la rotation
+  startQuat: THREE.Quaternion | null;
+  endQuat: THREE.Quaternion | null;
+  queuedDir: THREE.Vector3 | null; // nouvelle direction à appliquer quand turn fini
+  baseSpeed: number;           // mémoire vitesse pour idle/turn
+  idleT: number;               // temps écoulé idle
+  idleDur: number;             // durée idle
+}
+
+const walkers: Walker[] = [];
+const walkerPool: { obj: THREE.Object3D; mixer: THREE.AnimationMixer }[] = [];
+const MAX_WALKERS = 40;
+const MAX_POOL = 60;
+let nextWalkerTime = performance.now() + 3000; // première apparition après 3s
+const ROAD_EDGE_MARGIN = CELL*0.5 - 0.05;      // distance seuil avant changement de case
+const BASE_WALK_ANIM_SPEED = 0.9;              // ratio vitesse => timeScale
 
 function facingDirFromAngle(idx:number){
   return idx===0 ? {dx:0,dz:1} : idx===1 ? {dx:1,dz:0} : idx===2 ? {dx:0,dz:-1} : {dx:-1,dz:0};
@@ -625,54 +669,258 @@ function chooseFrontRoad(wx:number, wz:number, angleIdx:number){
   return null;
 }
 
-function spawnCitizensForLot(lotId:string, kind:"house"|"building", wx:number, wz:number, angleIdx:number){
-  const dir = chooseFrontRoad(wx, wz, angleIdx);
-  if (!dir) return;
+function spawnWalker(){
+  if (walkers.length >= MAX_WALKERS) return;
+  // choisir un lot (maison ou immeuble) au hasard
+  const sourceBag = Math.random()<0.6 ? houses : buildings; // bias vers maisons
+  const entries = [...sourceBag.entries()];
+  if (!entries.length) return;
+  const [lotKey, lotObj] = entries[(Math.random()*entries.length)|0];
+  const wxwz = lotKey.split(":").map(Number);
+  const wx = wxwz[0]; const wz = wxwz[1];
+  const angleIdx = lotObj.userData?.angle ?? 0;
+  const front = chooseFrontRoad(wx, wz, angleIdx);
+  if (!front) return; // pas de route adjacente
 
-  const count = kind==="house" ? (1 + Math.floor(Math.random()*3)) : (1 + Math.floor(Math.random()*6));
-  const frontOffset = (CELL/2) - 0.55; // un peu plus côté bâtiment
-const sideStep = 0.45;               // un peu plus d’écart latéral
-  const side = { dx: dir.dz, dz: -dir.dx };
-  const startIndex = -Math.floor((count-1)/2);
-
-  const list: THREE.Object3D[] = [];
-  for (let i=0;i<count;i++){
-    const choice = pickChar();
-if (!choice || !choice.prefab) continue;
-const m = choice.prefab.clone(true);
-
-// applique: échelle d’origine * normalisation
-m.scale.copy(choice.baseScale).multiplyScalar(choice.normScale);
-
-// position: bord du lot, pieds au sol
-const px = wx + dir.dx*frontOffset + side.dx*(startIndex+i)*sideStep;
-const pz = wz + dir.dz*frontOffset + side.dz*(startIndex+i)*sideStep;
-const py = Z_ROAD + choice.footOffset;
-m.position.set(px, py, pz);
-
-// face à la route
-m.lookAt(px + dir.dx, py, pz + dir.dz);
-scene.add(m);
-list.push(m);
+  const choice = pickChar();
+  if (!choice || !choice.prefab) return;
+  let baseObj: THREE.Object3D; let mixer: THREE.AnimationMixer;
+  if (walkerPool.length){
+    const reused = walkerPool.pop()!;
+    baseObj = reused.obj;
+    mixer = reused.mixer;
+    // reset actions
+    mixer.stopAllAction();
+  } else {
+    baseObj = SkeletonUtils.clone(choice.prefab);
+    mixer = new THREE.AnimationMixer(baseObj);
   }
-  citizensByLot.set(lotId, list);
+  const cloned = baseObj;
+  // échelle normalisée
+  cloned.scale.copy(choice.baseScale).multiplyScalar(choice.normScale);
+
+  const frontOffset = (CELL/2) - 0.9; // sortir un peu plus loin
+  // direction de marche = perpendiculaire à la route (droite/gauche)
+  const side = Math.random()<0.5 ? new THREE.Vector3(front.dz,0,-front.dx) : new THREE.Vector3(-front.dz,0,front.dx);
+  const px = wx + front.dx*frontOffset;
+  const pz = wz + front.dz*frontOffset;
+  const py = Z_ROAD + choice.footOffset;
+  cloned.position.set(px, py, pz);
+  // orientation: face dans la direction de déplacement (side)
+  const lookTarget = cloned.position.clone().add(side);
+  cloned.lookAt(lookTarget);
+  scene.add(cloned);
+
+  // animation
+  const clip = pickWalkClip(choice);
+  if (clip) {
+    const action = mixer.clipAction(clip);
+    action.reset();
+    // vitesse choisie avant calibrage
+  }
+
+  const speed = 0.6 + Math.random()*0.6; // 0.6 à 1.2 u/s
+  if (clip) {
+    const action = mixer.clipAction(clip);
+    action.timeScale = speed / BASE_WALK_ANIM_SPEED;
+    action.play();
+  }
+  const life = 45 + Math.random()*55; // durée de vie 45-100s (plus longue car demi-tours)
+
+  const axis: 'x'|'z' = Math.abs(side.x) > 0.1 ? 'x':'z';
+  const tileX = wx + front.dx*CELL;
+  const tileZ = wz + front.dz*CELL;
+  const perp = new THREE.Vector3(-side.z,0,side.x); // perpendiculaire
+  const lateralFreq = 1.5 + Math.random()*1.2;
+  const lateralAmp = 0.18 + Math.random()*0.1;
+  walkers.push({
+    obj: cloned, mixer, walkAction: clip? mixer.clipAction(clip): null,
+    dir: side.normalize(), speed, life, tileX, tileZ, axis,
+    lateralPhase: Math.random()*Math.PI*2, lateralFreq, lateralAmp, prevLat:0, perp,
+    state: 'walk', turnT:0, turnDur:0, startQuat:null, endQuat:null, queuedDir:null,
+    baseSpeed: speed, idleT:0, idleDur:0
+  });
 }
 
-function removeCitizensOfLot(lotId:string){
-  const arr = citizensByLot.get(lotId);
-  if (!arr) return;
-  for(const c of arr){
-    scene.remove(c);
-    c.traverse((n:any)=>{
-      if(n.isMesh){
-        n.geometry?.dispose?.();
-        const mat:any = n.material;
-        if (mat?.map) mat.map.dispose();
-        mat?.dispose?.();
-      }
-    });
+function roadExistsAt(cx:number, cz:number){ return roads.has(keyFromCenter(cx, cz)); }
+
+function recycleWalker(w:Walker){
+  scene.remove(w.obj);
+  if (walkerPool.length < MAX_POOL){
+    walkerPool.push({ obj: w.obj, mixer: w.mixer });
+  } else {
+    // si pool plein: nettoyage lourd
+    w.obj.traverse((n:any)=>{ if(n.isMesh){ n.geometry?.dispose?.(); const m:any = n.material; if(m?.map) m.map.dispose(); m?.dispose?.(); }});
   }
-  citizensByLot.delete(lotId);
+}
+
+function updateWalkers(dt:number){
+  if (dt <= 0) return;
+
+  // helpers tournants / intersections
+  function setupTurn(w:Walker, newDir:THREE.Vector3){
+    w.state='turn';
+    w.turnT=0; w.turnDur=0.38 + Math.random()*0.18; // 0.38-0.56s
+    w.startQuat = w.obj.quaternion.clone();
+    // orienter vers newDir pour endQuat
+    const target = w.obj.position.clone().add(newDir);
+    const tmp = new THREE.Object3D();
+    tmp.position.copy(w.obj.position);
+    tmp.lookAt(target);
+    w.endQuat = tmp.quaternion.clone();
+    w.queuedDir = newDir.clone().normalize();
+    // ralentir l'animation pendant le virage
+  if (w.walkAction) w.walkAction.timeScale = 0.6;
+  }
+
+  function maybeIdle(w:Walker){
+    if (w.state==='walk' && Math.random()<0.05){
+      w.state='idle';
+      w.idleT=0; w.idleDur=1 + Math.random()*2.2; // 1-3.2s
+  if (w.walkAction) w.walkAction.timeScale = 0.25;
+      w.speed = 0; // pause déplacement
+    }
+  }
+
+  for (let i=walkers.length-1; i>=0; i--){
+    const w = walkers[i];
+    w.mixer.update(dt);
+
+    // gérer état turn
+    if (w.state==='turn'){
+      w.turnT += dt;
+      const k = Math.min(1, w.turnT / w.turnDur);
+      if (w.startQuat && w.endQuat){
+        // slerp sur quaternion d'objet (interpolation manuelle)
+        w.obj.quaternion.copy(w.startQuat).slerp(w.endQuat, k);
+      }
+      if (k>=1){
+        if (w.queuedDir){
+          w.dir.copy(w.queuedDir);
+          w.axis = Math.abs(w.dir.x) > Math.abs(w.dir.z) ? 'x':'z';
+          w.perp.set(-w.dir.z,0,w.dir.x);
+        }
+        w.state='walk';
+        w.speed = w.baseSpeed;
+  if (w.walkAction) w.walkAction.timeScale = w.baseSpeed / BASE_WALK_ANIM_SPEED;
+      }
+    }
+
+    // idle
+    else if (w.state==='idle'){
+      w.idleT += dt;
+      if (w.idleT >= w.idleDur){
+        w.state='walk';
+        w.speed = w.baseSpeed;
+  if (w.walkAction) w.walkAction.timeScale = w.baseSpeed / BASE_WALK_ANIM_SPEED;
+      }
+    }
+
+    // enlever oscillation précédente
+    if (w.prevLat !== 0) w.obj.position.addScaledVector(w.perp, -w.prevLat);
+
+    // déplacement linéaire seulement si walk
+    if (w.state==='walk') w.obj.position.addScaledVector(w.dir, w.speed * dt);
+
+    // progression & gestion de case
+    if (w.state==='walk'){
+      const localProgress = w.axis==='x' ? (w.obj.position.x - w.tileX) : (w.obj.position.z - w.tileZ);
+      if (Math.abs(localProgress) > ROAD_EDGE_MARGIN){
+        const step = (localProgress>0?1:-1) * CELL;
+        const nx = w.axis==='x' ? w.tileX + step : w.tileX;
+        const nz = w.axis==='z' ? w.tileZ + step : w.tileZ;
+        if (roadExistsAt(nx, nz)) {
+          // entrée nouvelle case : mise à jour + possibilité intersection
+          w.tileX = nx; w.tileZ = nz;
+
+          // test intersection: quelles routes dispo ?
+            const dirs: THREE.Vector3[] = [];
+            const forward = w.dir.clone();
+            const left = new THREE.Vector3(-w.dir.z,0,w.dir.x);
+            const right = new THREE.Vector3(w.dir.z,0,-w.dir.x);
+            function tileCenterFromDir(d:THREE.Vector3){
+              const cx = w.tileX + (Math.abs(d.x)>0.1 ? Math.sign(d.x)*CELL : 0);
+              const cz = w.tileZ + (Math.abs(d.z)>0.1 ? Math.sign(d.z)*CELL : 0);
+              return {cx,cz};
+            }
+            const fT = tileCenterFromDir(forward); if (roadExistsAt(fT.cx, fT.cz)) dirs.push(forward);
+            const lT = tileCenterFromDir(left);    if (roadExistsAt(lT.cx, lT.cz)) dirs.push(left);
+            const rT = tileCenterFromDir(right);   if (roadExistsAt(rT.cx, rT.cz)) dirs.push(right);
+
+            // décider
+            if (dirs.length>1){
+              // pondération: forward favoris, 15% chance de chaque côté si existe
+              let chosen = forward;
+              const canLeft = dirs.some(d=>d===left);
+              const canRight= dirs.some(d=>d===right);
+              const roll = Math.random();
+              if (canLeft && roll<0.15) chosen = left;
+              else if (canRight && roll>=0.15 && roll<0.30) chosen = right;
+              // si forward pas dans dirs (cul-de-sac latéral) on prend un autre
+              if (!dirs.includes(forward)) chosen = dirs[(Math.random()*dirs.length)|0];
+              if (chosen !== forward){
+                setupTurn(w, chosen);
+              } else {
+                maybeIdle(w);
+              }
+            } else if (dirs.length===1){
+              // si unique et pas forward => virage obligatoire
+              if (dirs[0] !== forward) setupTurn(w, dirs[0]); else maybeIdle(w);
+            } else {
+              // cul-de-sac => demi-tour
+              const back = w.dir.clone().multiplyScalar(-1);
+              setupTurn(w, back);
+            }
+        } else {
+          // pas de prochaine case => demi-tour à la frontière
+          const back = w.dir.clone().multiplyScalar(-1);
+          setupTurn(w, back);
+          // clamp
+          if (w.axis==='x') w.obj.position.x = w.tileX + Math.sign(localProgress)*ROAD_EDGE_MARGIN;
+          else              w.obj.position.z = w.tileZ + Math.sign(localProgress)*ROAD_EDGE_MARGIN;
+        }
+      }
+    }
+
+    // oscillation latérale (même en idle/turn on peut réduire amplitude => ici on garde pour vie visuelle, mais amortir en turn)
+    let amp = w.lateralAmp;
+    if (w.state==='turn') amp *= 0.4; else if (w.state==='idle') amp *= 0.2;
+    w.lateralPhase += dt * w.lateralFreq;
+    const newLat = Math.sin(w.lateralPhase) * amp;
+    w.obj.position.addScaledVector(w.perp, newLat);
+    w.prevLat = newLat;
+
+    w.life -= dt;
+    if (w.life <= 0){
+      recycleWalker(w);
+      walkers.splice(i,1);
+      continue;
+    }
+  }
+
+  // évitement simple (séparation) – coût O(n^2) limité
+  for (let i=0;i<walkers.length;i++){
+    const a = walkers[i]; if (a.state==='turn') continue; // ignorer durant virage
+    for (let j=i+1;j<walkers.length;j++){
+      const b = walkers[j]; if (b.state==='turn') continue;
+      const dx = b.obj.position.x - a.obj.position.x;
+      const dz = b.obj.position.z - a.obj.position.z;
+      const d2 = dx*dx + dz*dz;
+      if (d2 < 0.36){
+        const d = Math.sqrt(Math.max(1e-6,d2));
+        const push = (0.6 - d) * 0.5;
+        const nx = dx/d, nz = dz/d;
+        a.obj.position.x -= nx*push*0.5; a.obj.position.z -= nz*push*0.5;
+        b.obj.position.x += nx*push*0.5; b.obj.position.z += nz*push*0.5;
+      }
+    }
+  }
+
+  const now = performance.now();
+  if (now >= nextWalkerTime){
+    spawnWalker();
+    nextWalkerTime = now + 1200 + Math.random()*3800;
+  }
 }
 let lastPlaceError = "";
 
@@ -701,8 +949,7 @@ function placeHouse(wx:any,wz:any){
   scene.add(obj);
   houses.set(id, obj);
 
-  // AJOUT citoyens gratuits
-  spawnCitizensForLot(id, "house", wx, wz, obj.userData.angle ?? 0);
+  // (Plus de citoyens statiques: les promeneurs apparaissent de façon globale)
 
   money -= HOUSE_COST; renderMoney(); showSpend(HOUSE_COST);
   lastPlaceError = "";
@@ -722,8 +969,7 @@ function placeBuilding(wx:any,wz:any){
   scene.add(obj);
   buildings.set(id, obj);
 
-  // AJOUT citoyens gratuits
-  spawnCitizensForLot(id, "building", wx, wz, obj.userData.angle ?? 0);
+  // (Plus de citoyens statiques: les promeneurs apparaissent de façon globale)
 
   money -= BUILDING_COST; renderMoney(); showSpend(BUILDING_COST);
   lastPlaceError = "";
@@ -742,14 +988,13 @@ function eraseAtPointer(event:any){
     if (!node.parent||node.parent===scene) break; node=node.parent;
   }
   if(!root) return;
-  let hitKey:any=null, bag:any=null, kind:'road'|'house'|'building'|null=null;
-  for(const [k,m] of roads.entries())      if(m===root){ hitKey=k; bag=roads;      kind='road';      break; }
-  if(!hitKey) for(const [k,m] of houses.entries())    if(m===root){ hitKey=k; bag=houses;    kind='house';     break; }
-  if(!hitKey) for(const [k,m] of buildings.entries()) if(m===root){ hitKey=k; bag=buildings; kind='building';  break; }
+  let hitKey:any=null, bag:any=null;
+  for(const [k,m] of roads.entries())      if(m===root){ hitKey=k; bag=roads;      break; }
+  if(!hitKey) for(const [k,m] of houses.entries())    if(m===root){ hitKey=k; bag=houses;    break; }
+  if(!hitKey) for(const [k,m] of buildings.entries()) if(m===root){ hitKey=k; bag=buildings; break; }
   if(!hitKey) return;
 
-  // AJOUT: supprimer citoyens liés si maison/immeuble
-  if (kind==='house' || kind==='building') removeCitizensOfLot(hitKey);
+  // (Citoyens animés globaux: rien de spécifique à retirer ici)
 
   removeGroundPlate(root.userData?.groundPlate);
 
@@ -854,6 +1099,12 @@ function tick(){
   stepCameraRotation(performance.now()); // << ajoute ceci
   updateGrid();
   controls.update();
+  // update walkers (delta basé sur 60fps approx ou calcul précis)
+  // on calcule delta réel pour mixer
+  const nowTime = performance.now();
+  const dt = (nowTime - lastWalkerUpdate) / 1000;
+  updateWalkers(dt);
+  lastWalkerUpdate = nowTime;
   renderer.render(scene, camera);
   stats.end();
   
@@ -866,4 +1117,5 @@ function tick(){
   }
   requestAnimationFrame(tick);
 }
+let lastWalkerUpdate = performance.now();
 requestAnimationFrame(tick);
