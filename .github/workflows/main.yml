@@ -1,0 +1,38 @@
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "main"
+      - "develop"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pull the repository
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install dependencies for the server
+        run: npm install
+        working-directory: server
+
+      - name: Build the server
+        run: npm run build
+        working-directory: server
+
+      - name: Install dependencies for the client
+        run: npm install
+        working-directory: client
+
+      - name: Build the client
+        run: npm run build
+        working-directory: client
