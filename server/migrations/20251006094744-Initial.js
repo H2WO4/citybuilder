@@ -25,39 +25,39 @@ export async function up(db) {
 
   await db.createCollection("buildings", {
     validator: {
-      // $jsonSchema: {
-      //   required: ["_id", "city", "position", "orientation", "type"],
+      $jsonSchema: {
+        required: ["_id", "city", "position", "orientation", "type"],
 
-      //   properties: {
-      //     _id: { bsonType: "objectId" },
+        properties: {
+          _id: { bsonType: "objectId" },
 
-      //     city: { bsonType: "objectId" },
+          city: { bsonType: "objectId" },
 
-      //     position: {
-      //       bsonType: "object",
-      //       properties: {
-      //         x: { bsonType: "int" },
-      //         y: { bsonType: "int" },
-      //       }
-      //     },
+          position: {
+            bsonType: "object",
+            properties: {
+              x: { bsonType: "int" },
+              y: { bsonType: "int" },
+            }
+          },
 
-      //     orientation: {
-      //       enum: ["n", "s", "e", "w"]
-      //     },
+          orientation: {
+            enum: ["n", "s", "e", "w"]
+          },
 
-      //     type: {
-      //       enum: [
-      //         "residential",
-      //         "commercial",
-      //         "industry",
-      //         "entertainment",
-      //         "services"
-      //       ],
+          type: {
+            enum: [
+              "residential",
+              "commercial",
+              "industry",
+              "entertainment",
+              "services"
+            ],
 
-      //     }
-      //   },
-      //   additionalProperties: false
-      // }
+          }
+        },
+        additionalProperties: false
+      }
     }
   })
   await db.collection('buildings').createIndex({
