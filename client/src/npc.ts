@@ -9,7 +9,7 @@ import { houses, buildings, roads, keyFromCenter } from "./placement";
 const walkers: Walker[] = [];
 const walkerPool: { obj: THREE.Object3D; mixer: THREE.AnimationMixer }[] = [];
 const MAX_WALKERS = 40;
-const MAX_POOL = 60;
+// const MAX_POOL = 60;
 let nextWalkerTime = performance.now() + 3000;
 const ROAD_EDGE_MARGIN = CELL * 0.5 - 0.05;
 const BASE_WALK_ANIM_SPEED = 0.9;
