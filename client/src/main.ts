@@ -876,6 +876,14 @@ function recycleWalker(w:Walker){
 }
 
 function updateWalkers(dt:number){
+  // Si plus de maisons, supprimer tous les PNJ
+  if (houses.size === 0 && walkers.length > 0) {
+    for (let i = walkers.length - 1; i >= 0; i--) {
+      recycleWalker(walkers[i]);
+      walkers.splice(i, 1);
+    }
+    return;
+  }
   if (dt <= 0) return;
 
   // helpers tournants / intersections
@@ -1132,10 +1140,6 @@ function eraseAtPointer(event:any){
   if (!hitKey) for (const [k,m] of turbines.entries())   if (m===root){ hitKey=k; bag=turbines;   kind='turbine'; break; }
   if (!hitKey) for (const [k,m] of sawmills.entries())   if (m===root){ hitKey=k; bag=sawmills;   kind='sawmill'; break; }
   if (!hitKey || !bag || !kind) return;
-
-  // retire PNJ et plaque si présents
-  if (kind==='house' || kind==='building') removeCitizensOfLot(hitKey);
-  removeGroundPlate(root.userData?.groundPlate);
 
   // ajustements de ressources
   if (kind==='well')     { resources.water  = Math.max(0, resources.water  - 10); updateRes(); }
