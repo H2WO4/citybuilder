@@ -45,8 +45,10 @@ function setActive(m: CursorMode) {
   currentMode = m;
   setMode(m);
   updateFabActive();
-  const isBuild = m === "road" || m === "house" || m === "building" || m === "well" || m === "turbine" || m === "sawmill";
-  document.body.style.cursor = isBuild ? "crosshair" : m === "bulldozer" ? "not-allowed" : "default";
+  const isBuild = m === "road" || m === "house" || m === "building" || m === "well" || m === "turbine" || m === "sawmill" || m === "bulldozer";
+  if (m === "bulldozer") document.body.style.cursor = "not-allowed";
+  else if (isBuild) document.body.style.cursor = "crosshair";
+  else document.body.style.cursor = "default";
   if (isBuild) {
     makePreview();
     if (lastPointerEvent) setPreviewVisible(!overUI(lastPointerEvent));
@@ -70,7 +72,21 @@ if (fab && fabList) {
   fabList.addEventListener("click", (event) => {
     const li = (event.target as HTMLElement).closest<HTMLLIElement>("li[data-tool]");
     if (!li) return;
-    setActive(li.dataset.tool as CursorMode);
+    const tool = li.dataset.tool as CursorMode;
+    const wasBulldozer = currentMode === 'bulldozer';
+    setActive(tool);
+    // Messages toast cohérents
+const labels: Record<CursorMode, string> = {
+  pan: "Déplacement",
+  road: "Route",
+  house: "Maison",
+  building: "Immeuble",
+  well: "Puits",
+  turbine: "Éolienne",
+  sawmill: "Scierie",
+  bulldozer: wasBulldozer ? "Bulldozer désactivé" : "Bulldozer activé"
+};
+    showToast(labels[tool] || tool);
     fab.classList.remove("active");
   });
 }
@@ -88,7 +104,12 @@ function cyclePiece() {
 }
 addEventListener("keydown", (e) => {
   if ((e.key === 'r' || e.key === 'R') && currentMode === 'road') { e.preventDefault(); cyclePiece(); }
-  if (e.key === 'x' || e.key === 'X') { e.preventDefault(); setActive(currentMode === 'bulldozer' ? 'pan' : 'bulldozer'); showToast(currentMode === 'bulldozer' ? 'Bulldozer désactivé' : 'Bulldozer actif'); }
+  if (e.key === 'x' || e.key === 'X') {
+    e.preventDefault();
+    const wasBulldozer = currentMode === 'bulldozer';
+    setActive(wasBulldozer ? 'pan' : 'bulldozer');
+    showToast(wasBulldozer ? 'Bulldozer désactivé' : 'Bulldozer activé');
+  }
   if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); rotateCameraQuarter(-1, 300); }
   if (e.key === 'e' || e.key === 'E') { e.preventDefault(); rotateCameraQuarter(+1, 300); }
   const rotatable = currentMode === "road" || currentMode === "house" || currentMode === "building" || currentMode === "well" || currentMode === "turbine" || currentMode === "sawmill";
@@ -107,9 +128,10 @@ addEventListener("pointermove", (e) => {
   if (overUI(e)) { setCursorVisible(false); setPreviewVisible(false); return; }
   const p = screenToGround(e); if (!p) { setCursorVisible(false); setPreviewVisible(false); return; }
   const s = snapToCell(p);
-  setCursorVisible(currentMode !== "pan");
+  setCursorVisible(currentMode !== "pan" && currentMode !== "bulldozer");
   setCursorPosition(s.x, s.z);
-  const isBuild = currentMode === "road" || currentMode === "house" || currentMode === "building" || currentMode === "well" || currentMode === "turbine" || currentMode === "sawmill";
+  const isBuild = currentMode === "road" || currentMode === "house" || currentMode === "building" || currentMode === "well" || currentMode === "turbine" || currentMode === "sawmill" || currentMode === "bulldozer";
+  // bulldozer uses only red plane (no yellow cursor overlay)
   setPreviewVisible(isBuild);
   if (isBuild) { updatePreviewPosition(s); updatePreviewRotation(); }
   if (!painting) return;
@@ -131,6 +153,25 @@ addEventListener("pointerdown", (e) => {
   if (overUI(e)) return;
   if (e.button === 0) {
     const p = screenToGround(e); if (!p) return; const s = snapToCell(p);
+    if (currentMode === "bulldozer") {
+      // Cherche un objet à supprimer à cette position
+      const id = `${s.x}:${s.z}`;
+      let found = false;
+      const bags = [houses, buildings, wells, turbines, sawmills, roads];
+      for (const bag of bags) {
+        const obj = bag.get(id);
+        if (obj) {
+          bag.delete(id);
+          // @ts-ignore
+          import("./placement").then(m => m.removeObject(obj));
+          found = true;
+          showToast("Bâtiment supprimé");
+          break;
+        }
+      }
+      if (!found) showToast("Aucun bâtiment à supprimer ici");
+      return;
+    }
     painting = true;
     tryPlace(currentMode, s.x, s.z);
   } else if (e.button === 2) {
