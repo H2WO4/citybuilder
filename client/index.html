@@ -1,17 +1,12 @@
 <!doctype html>
-<html lang="en">
-
+<html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>City Builder</title>
   <link rel="stylesheet" href="/styles/main.scss">
 </head>
-
 <body>
-  <script type="module" src="/src/main.ts"></script>
-  <script type="module" src="/src/ui.ts"></script>
 
   <div class="action ui" id="fab" aria-label="Menu actions" role="button">
     <span>+</span>
@@ -20,8 +15,29 @@
       <li data-tool="road">🛣️ Route</li>
       <li data-tool="house">🏠 Maison</li>
       <li data-tool="building">🏢 Immeuble</li>
+      <li data-tool="well">🕳️ Puits</li>
+      <li data-tool="turbine">🌀 Éolienne</li>
+      <li data-tool="sawmill">🪓 Scierie</li>
+      <li data-tool="bulldozer">🗑️ Bulldozer</li>
     </ul>
   </div>
-</body>
 
+  <div class="ui panel money-hud" id="money-hud"></div>
+
+  <div class="ui panel res-hud" id="res-hud">
+    ⚡ <span id="r-power">0</span>&nbsp;
+    💧 <span id="r-water">0</span>&nbsp;
+    🍖 <span id="r-food">0</span>&nbsp;
+    🪵 <span id="r-wood">0</span>
+  </div>
+
+  <div class="ui panel fps-hud" id="fps-hud">— FPS</div>
+
+ 
+  <div class="ui toast" id="toast"></div>
+  <div class="ui money-popups" id="money-popups"></div>
+
+  
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>

@@ -1,87 +1,62 @@
-// UI interactions (floating action button + accessibility)
-// Type augmentation for global window to expose actionToggle if needed elsewhere
-declare global {
-  interface Window {
-    actionToggle?: () => void;
+export let money = 200000;
+const hud = document.getElementById("money-hud") as HTMLElement;
+export const fmtEUR = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+export function renderMoney() { if (hud) hud.textContent = fmtEUR.format(money); }
+renderMoney();
+
+const toast = document.getElementById("toast") as HTMLDivElement;
+let toastT: any = null;
+export function showToast(msg: any) {
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.style.opacity = "1";
+  clearTimeout(toastT);
+  toastT = setTimeout(() => toast.style.opacity = "0", 1200);
+}
+
+interface MoneyPopupAggregate { amount: number; element: HTMLDivElement; timeout: any; lastTime: number; }
+const moneyPopupContainer = document.getElementById("money-popups") as HTMLDivElement;
+const REFUND_AGG_WINDOW = 450;
+const SPEND_AGG_WINDOW = 450;
+let refundAggregate: MoneyPopupAggregate | null = null;
+let spendAggregate: MoneyPopupAggregate | null = null;
+
+function createMoneyPopup(text: string, key: string, pulse = false) {
+  const div = document.createElement('div');
+  div.className = `ui money-float money-float--${key}`;
+  div.textContent = text;
+  moneyPopupContainer.appendChild(div);
+  requestAnimationFrame(() => { div.classList.add('show'); if (pulse) div.classList.add('pulse'); });
+  setTimeout(() => { div.classList.remove('show'); setTimeout(() => div.remove(), 400); }, 1500);
+  return div;
+}
+
+export function showRefund(amount: number) {
+  const now = performance.now();
+  if (refundAggregate && (now - refundAggregate.lastTime) < REFUND_AGG_WINDOW) {
+    refundAggregate.amount += amount;
+    refundAggregate.lastTime = now;
+    refundAggregate.element.textContent = '+' + fmtEUR.format(refundAggregate.amount);
+    refundAggregate.element.classList.add('pulse');
+    clearTimeout(refundAggregate.timeout);
+    refundAggregate.timeout = setTimeout(() => { refundAggregate?.element.classList.remove('show'); refundAggregate = null; }, 1500);
+    return;
   }
+  const el = createMoneyPopup('+' + fmtEUR.format(amount), 'refund', true);
+  refundAggregate = { amount, element: el, lastTime: now, timeout: setTimeout(() => { el.classList.remove('show'); refundAggregate = null; }, 1500) };
 }
 
-function adjustFab(action: HTMLElement): void {
-  if (!action) return;
-  action.classList.remove('flip-x', 'flip-y');
-  const list = action.querySelector<HTMLUListElement>('ul');
-  if (!list) return;
-  const wasHidden = !action.classList.contains('active');
-  if (wasHidden) {
-    action.classList.add('active');
-    list.style.visibility = 'hidden';
-    list.style.opacity = '0';
+export function showSpend(amount: number) {
+  const now = performance.now();
+  if (spendAggregate && (now - spendAggregate.lastTime) < SPEND_AGG_WINDOW) {
+    spendAggregate.amount += amount;
+    spendAggregate.lastTime = now;
+    spendAggregate.element.textContent = '-' + fmtEUR.format(spendAggregate.amount);
+    spendAggregate.element.classList.add('pulse');
+    clearTimeout(spendAggregate.timeout);
+    spendAggregate.timeout = setTimeout(() => { spendAggregate?.element.classList.remove('show'); spendAggregate = null; }, 1500);
+    return;
   }
-  const rect = list.getBoundingClientRect();
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  let flipX = false;
-  let flipY = false;
-  if (rect.right > vw) flipX = true;
-  if (rect.left < 0) flipX = true; // left overflow
-  if (rect.top < 0) flipY = true;  // top overflow
-  if (rect.bottom > vh) flipY = true; // bottom overflow
-  if (flipX) action.classList.add('flip-x');
-  if (flipY) action.classList.add('flip-y');
-  if (wasHidden) {
-    action.classList.remove('active');
-    list.style.visibility = '';
-    list.style.opacity = '';
-  }
+  const el = createMoneyPopup('-' + fmtEUR.format(amount), 'spend', true);
+  spendAggregate = { amount, element: el, lastTime: now, timeout: setTimeout(() => { el.classList.remove('show'); spendAggregate = null; }, 1500) };
 }
-
-export function actionToggle(): void {
-  const action = document.querySelector<HTMLElement>('.action');
-  if (!action) return;
-  const isActive = action.classList.toggle('active');
-  action.setAttribute('aria-expanded', isActive ? 'true' : 'false');
-  if (isActive) {
-    requestAnimationFrame(() => adjustFab(action));
-  }
-}
-
-// Optionally expose globally (only if some inline HTML uses it)
-window.actionToggle = actionToggle;
-
-const fab = document.getElementById('fab') as HTMLElement | null;
-if (fab) {
-  fab.addEventListener('click', (e: MouseEvent) => {
-    e.stopPropagation();
-    actionToggle();
-  });
-  fab.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      actionToggle();
-    }
-    if (e.key === 'Escape') {
-      fab.classList.remove('active');
-      fab.setAttribute('aria-expanded', 'false');
-    }
-  });
-  fab.setAttribute('tabindex', '0');
-  fab.setAttribute('aria-expanded', 'false');
-}
-
-export function init(): void {
-  // Close when clicking outside
-  document.addEventListener('click', (e: MouseEvent) => {
-    const act = document.querySelector<HTMLElement>('.action.active');
-    if (act && !act.contains(e.target as Node)) {
-      act.classList.remove('active');
-      act.setAttribute('aria-expanded', 'false');
-    }
-  });
-
-  window.addEventListener('resize', () => {
-    const active = document.querySelector<HTMLElement>('.action.active');
-    if (active) adjustFab(active);
-  });
-}
-
- init();
