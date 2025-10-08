@@ -10,6 +10,11 @@ import URL_STREET_X from "../texture_models/Roads/Crosswalk.glb?url";
 import URL_HOUSE    from "../texture_models/Buildings/House.glb?url";
 import URL_BUILDING from "../texture_models/Buildings/Building.glb?url";
 
+import URL_CHAR_W1 from "../texture_models/character/AnimatedWoman.glb?url";
+import URL_CHAR_W2 from "../texture_models/character/AnimatedWoman2.glb?url";
+import URL_CHAR_BM from "../texture_models/character/BusinessMan.glb?url";
+import URL_CHAR_HD from "../texture_models/character/HoodieCharacter.glb?url";
+
 import * as UI from "./ui";
 
 // Init
@@ -24,6 +29,8 @@ const CELL = 3 * TILE_SIZE;
 const ROAD_COST = 200;
 const HOUSE_COST = 1200;
 const BUILDING_COST = 5000;
+// Pourcentage de remboursement universel
+const REFUND_RATIO = 0.5; // 50%
 
 // === trame unique ===
 const STEP = CELL;
@@ -50,7 +57,10 @@ function setOrtho(cam: any){
   cam.updateProjectionMatrix();
 }
 const camera = new THREE.OrthographicCamera(-1,1,1,-1,0.1,2000);
-camera.position.set(30,30,30); camera.lookAt(0,0,0); camera.zoom=1; setOrtho(camera);
+const CAM_TARGET = new THREE.Vector3(0,0,0);   // cible de rotation
+camera.position.set(30,30,30);
+camera.lookAt(CAM_TARGET);
+camera.zoom=1; setOrtho(camera);
 
 // ----- rendu -----
 const renderer = new THREE.WebGLRenderer({ antialias:true });
@@ -255,14 +265,8 @@ function setActive(m: any) {
     makePreview();
     if (preview) preview.visible = !overUI(lastPointerEvent);
   } else if (m === "bulldozer") {
-    // créer une "preview" rouge simple pour feedback (carré rouge sur la cellule)
+    // Mode bulldozer: pas de preview séparée pour éviter double overlay, seul le curseur (rouge) sert de feedback
     if (preview) { scene.remove(preview); preview = null; }
-    const geo = GEO_PLACEMENT.clone();
-    const mat = new THREE.MeshBasicMaterial({ color:0xff0000, transparent:true, opacity:0.25 });
-    const plate = new THREE.Mesh(geo, mat);
-    plate.position.y = 0.0006;
-    preview = plate;
-    scene.add(preview);
   } else {
     if (preview) preview.visible = false;
   }
@@ -323,6 +327,47 @@ const controls = new MapControls(camera, renderer.domElement);
 controls.enableRotate=false; controls.screenSpacePanning=true; controls.enableDamping=true;
 controls.mouseButtons.LEFT=null; controls.mouseButtons.RIGHT=THREE.MOUSE.PAN;
 controls.addEventListener("change",()=> camera.position.y=Math.max(camera.position.y,1));
+controls.target.copy(CAM_TARGET);  // important
+
+// rotation 90° autour de la cible
+let camRotAnim: { t0:number; dur:number; a0:number; a1:number; R:number; y:number } | null = null;
+let camYawIndex = 0;
+
+function easeInOutCubic(x:number){ return x<0.5 ? 4*x*x*x : 1 - Math.pow(-2*x+2,3)/2; }
+
+function rotateCameraQuarter(dir: 1 | -1, duration=300){
+  if (camRotAnim) return;                    // ignore si anim en cours
+  camYawIndex = (camYawIndex + (dir===1?1:3)) & 3;
+
+  const t = controls.target;
+  const v = camera.position.clone().sub(t);
+  const a0 = Math.atan2(v.x, v.z);           // angle actuel
+  const a1 = a0 + dir * Math.PI/2;           // +90° / -90°
+  const R  = Math.hypot(v.x, v.z);           // rayon
+  camRotAnim = { t0: performance.now(), dur: duration, a0, a1, R, y: camera.position.y };
+}
+
+function stepCameraRotation(now:number){
+  if(!camRotAnim) return;
+  const { t0, dur, a0, a1, R, y } = camRotAnim;
+  const k = Math.min(1, (now - t0) / dur);
+  const e = easeInOutCubic(k);
+  const a = a0 + (a1 - a0) * e;
+  const t = controls.target;
+
+  const x = t.x + Math.sin(a) * R;
+  const z = t.z + Math.cos(a) * R;
+  camera.position.set(x, y, z);
+  camera.up.set(0,1,0);
+  camera.lookAt(t);
+  controls.update();
+
+  if (k >= 1) camRotAnim = null;
+}
+addEventListener("keydown",(e)=>{
+  if(e.key==='q'||e.key==='Q'){ e.preventDefault(); rotateCameraQuarter(-1, 300); }
+  if(e.key==='e'||e.key==='E'){ e.preventDefault(); rotateCameraQuarter(+1, 300); }
+});
 
 // ----- grille + sol -----
 const GRID_DIV = 800;                         // pair
@@ -421,6 +466,62 @@ for (const key of Object.keys(MODELS) as ModelKey[]) {
   }, undefined, (e) => console.error("GLB load error:", key, entry.path, e));
 }
 
+type CharEntry = {
+  path: string;
+  prefab: THREE.Object3D | null;
+  // échelle d'origine du root du GLB (certains ≠ 1)
+  baseScale: THREE.Vector3;
+  // facteur de normalisation vers une taille humaine cible
+  normScale: number;
+  // offset Y pour poser les pieds au sol (après normalisation)
+  footOffset: number;
+};
+
+const CHAR_MODELS: CharEntry[] = [
+  { path: URL_CHAR_W1, prefab: null, baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
+  { path: URL_CHAR_W2, prefab: null, baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
+  { path: URL_CHAR_BM, prefab: null, baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
+  { path: URL_CHAR_HD, prefab: null, baseScale: new THREE.Vector3(1,1,1), normScale: 1, footOffset: 0 },
+];
+
+const TARGET_H = 0.70;     // taille humaine cible dans ta scène
+const FOOT_EPS  = 0.002;   // anti z-fighting
+
+for (const C of CHAR_MODELS) {
+  gltfLoader.load(
+    C.path,
+    (g:any) => {
+      const root: THREE.Object3D = g.scene;
+      root.updateWorldMatrix(true, true);
+
+      // mémorise l’échelle d’origine du root
+      C.baseScale = (root as any).scale?.clone?.() ?? new THREE.Vector3(1,1,1);
+
+      // mesure la hauteur actuelle (avec échelle d’origine)
+      const box = new THREE.Box3().setFromObject(root);
+      const size = new THREE.Vector3(); box.getSize(size);
+      const h = Math.max(1e-6, size.y);
+
+      // facteur pour normaliser à TARGET_H
+      C.normScale = TARGET_H / h;
+
+      // offset pour poser les pieds sur y=0 après normalisation
+      C.footOffset = -box.min.y * C.normScale + FOOT_EPS;
+
+      root.traverse((o:any)=>{ if(o.isMesh){ o.castShadow = o.receiveShadow = true; }});
+      C.prefab = root;
+    },
+    undefined,
+    (e)=> console.error("GLB PNJ load error:", C.path, e)
+  );
+}
+
+function pickChar(): CharEntry | null {
+  const ready = CHAR_MODELS.filter(c => !!c.prefab);
+  if (!ready.length) return null;
+  return ready[(Math.random() * ready.length) | 0];
+}
+
 // ----- PREVIEW -----
 function makePreview() {
   if (preview) { scene.remove(preview); preview = null; }
@@ -509,6 +610,73 @@ function hasAdjacentRoad(wx:any,wz:any){
   );
 }
 
+// ====== CITOYENS (AJOUT) ======
+const citizensByLot = new Map<string, THREE.Object3D[]>();
+
+function facingDirFromAngle(idx:number){
+  return idx===0 ? {dx:0,dz:1} : idx===1 ? {dx:1,dz:0} : idx===2 ? {dx:0,dz:-1} : {dx:-1,dz:0};
+}
+
+function chooseFrontRoad(wx:number, wz:number, angleIdx:number){
+  const f = facingDirFromAngle(angleIdx);
+  const frontKey = `${wx + f.dx*CELL}:${wz + f.dz*CELL}`;
+  if (roads.has(frontKey)) return {dx:f.dx, dz:f.dz};
+  if (roads.has(`${wx + CELL}:${wz}`)) return {dx:1, dz:0};
+  if (roads.has(`${wx - CELL}:${wz}`)) return {dx:-1, dz:0};
+  if (roads.has(`${wx}:${wz + CELL}`)) return {dx:0, dz:1};
+  if (roads.has(`${wx}:${wz - CELL}`)) return {dx:0, dz:-1};
+  return null;
+}
+
+function spawnCitizensForLot(lotId:string, kind:"house"|"building", wx:number, wz:number, angleIdx:number){
+  const dir = chooseFrontRoad(wx, wz, angleIdx);
+  if (!dir) return;
+
+  const count = kind==="house" ? (1 + Math.floor(Math.random()*3)) : (1 + Math.floor(Math.random()*6));
+  const frontOffset = (CELL/2) - 0.55; // un peu plus côté bâtiment
+const sideStep = 0.45;               // un peu plus d’écart latéral
+  const side = { dx: dir.dz, dz: -dir.dx };
+  const startIndex = -Math.floor((count-1)/2);
+
+  const list: THREE.Object3D[] = [];
+  for (let i=0;i<count;i++){
+    const choice = pickChar();
+if (!choice || !choice.prefab) continue;
+const m = choice.prefab.clone(true);
+
+// applique: échelle d’origine * normalisation
+m.scale.copy(choice.baseScale).multiplyScalar(choice.normScale);
+
+// position: bord du lot, pieds au sol
+const px = wx + dir.dx*frontOffset + side.dx*(startIndex+i)*sideStep;
+const pz = wz + dir.dz*frontOffset + side.dz*(startIndex+i)*sideStep;
+const py = Z_ROAD + choice.footOffset;
+m.position.set(px, py, pz);
+
+// face à la route
+m.lookAt(px + dir.dx, py, pz + dir.dz);
+scene.add(m);
+list.push(m);
+  }
+  citizensByLot.set(lotId, list);
+}
+
+function removeCitizensOfLot(lotId:string){
+  const arr = citizensByLot.get(lotId);
+  if (!arr) return;
+  for(const c of arr){
+    scene.remove(c);
+    c.traverse((n:any)=>{
+      if(n.isMesh){
+        n.geometry?.dispose?.();
+        const mat:any = n.material;
+        if (mat?.map) mat.map.dispose();
+        mat?.dispose?.();
+      }
+    });
+  }
+  citizensByLot.delete(lotId);
+}
 let lastPlaceError = "";
 
 function placeRoad(wx:any,wz:any){
@@ -535,6 +703,10 @@ function placeHouse(wx:any,wz:any){
   obj.position.set(wx,Z_ROAD,wz);
   scene.add(obj);
   houses.set(id, obj);
+
+  // AJOUT citoyens gratuits
+  spawnCitizensForLot(id, "house", wx, wz, obj.userData.angle ?? 0);
+
   money -= HOUSE_COST; renderMoney(); showSpend(HOUSE_COST);
   lastPlaceError = "";
   return true;
@@ -552,6 +724,10 @@ function placeBuilding(wx:any,wz:any){
   obj.position.set(wx,Z_ROAD,wz);
   scene.add(obj);
   buildings.set(id, obj);
+
+  // AJOUT citoyens gratuits
+  spawnCitizensForLot(id, "building", wx, wz, obj.userData.angle ?? 0);
+
   money -= BUILDING_COST; renderMoney(); showSpend(BUILDING_COST);
   lastPlaceError = "";
   return true;
@@ -569,11 +745,14 @@ function eraseAtPointer(event:any){
     if (!node.parent||node.parent===scene) break; node=node.parent;
   }
   if(!root) return;
-  let hitKey:any=null, bag:any=null;
-  for(const [k,m] of roads.entries())      if(m===root){ hitKey=k; bag=roads;      break; }
-  if(!hitKey) for(const [k,m] of houses.entries())    if(m===root){ hitKey=k; bag=houses;    break; }
-  if(!hitKey) for(const [k,m] of buildings.entries()) if(m===root){ hitKey=k; bag=buildings; break; }
+  let hitKey:any=null, bag:any=null, kind:'road'|'house'|'building'|null=null;
+  for(const [k,m] of roads.entries())      if(m===root){ hitKey=k; bag=roads;      kind='road';      break; }
+  if(!hitKey) for(const [k,m] of houses.entries())    if(m===root){ hitKey=k; bag=houses;    kind='house';     break; }
+  if(!hitKey) for(const [k,m] of buildings.entries()) if(m===root){ hitKey=k; bag=buildings; kind='building';  break; }
   if(!hitKey) return;
+
+  // AJOUT: supprimer citoyens liés si maison/immeuble
+  if (kind==='house' || kind==='building') removeCitizensOfLot(hitKey);
 
   removeGroundPlate(root.userData?.groundPlate);
 
@@ -588,12 +767,16 @@ function eraseAtPointer(event:any){
     }
   });
   if (bag) bag.delete(hitKey as any);
-  // Remboursement : route 100%, maison / building 50%
+  // Remboursement universel basé sur REFUND_RATIO
   const full = root.userData?.cost ?? 0;
-  let refund = full;
-  if (root.userData?.kind === 'house' || root.userData?.kind === 'building') refund = Math.round(full * 0.5);
-  money += refund; renderMoney();
-  if (refund > 0) showRefund(refund);
+  const refund = Math.round(full * REFUND_RATIO);
+  if (refund > 0 && full > 0) {
+    money += refund;
+    renderMoney();
+    showRefund(refund);
+    // Debug (désactive si inutile)
+    // console.debug(`[REFUND] kind=${root.userData?.kind} cost=${full} refund=${refund}`);
+  }
 }
 
 // ----- interactions -----
@@ -615,10 +798,10 @@ addEventListener("pointermove", e=>{
   const s = snapToCell(p);
   if (cursor) { cursor.visible = (mode !== "pan"); cursor.position.set(s.x, 0.001, s.z); }
   if (preview) {
-    if (mode === "road" || mode === "house" || mode === "building" || mode === 'bulldozer') {
+    if (mode === "road" || mode === "house" || mode === "building") {
       preview.visible = true;
       updatePreviewPosition(s);
-      if (mode !== 'bulldozer') updatePreviewRotation();
+      updatePreviewRotation();
     } else {
       preview.visible = false;
     }
@@ -671,11 +854,12 @@ addEventListener("resize", ()=>{ setOrtho(camera); renderer.setSize(innerWidth, 
 let frames = 0, t0 = performance.now();
 function tick(){
   stats.begin();
+  stepCameraRotation(performance.now()); // << ajoute ceci
   updateGrid();
   controls.update();
   renderer.render(scene, camera);
   stats.end();
-
+  
   frames++;
   const now = performance.now();
   if (now - t0 >= 500) {
