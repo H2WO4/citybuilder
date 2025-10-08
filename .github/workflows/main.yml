@@ -20,9 +20,17 @@ jobs:
           node-version: 22.x
           cache: 'npm'
 
+      - name: Install dependencies for the server
+        run: npm install
+        working-directory: server
+
       - name: Build the server
         run: npm run build
         working-directory: server
+
+      - name: Install dependencies for the client
+        run: npm install
+        working-directory: client
 
       - name: Build the client
         run: npm run build
