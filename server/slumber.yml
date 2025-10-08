@@ -3,7 +3,7 @@
 name: Server
 
 .base_profile_data:
-  city_id: "{{ response('c_get_all', trigger='no_history') | jsonpath('$[*]._id', mode='array') | select() }}"
+  city_id: "{{ response('c_get_all', trigger='always') | jsonpath('$[*]._id', mode='array') | select() }}"
 
 profiles:
   local:
