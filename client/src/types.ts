@@ -10,8 +10,8 @@ export interface ModelEntry {
   prefab: THREE.Object3D | null
   scale: THREE.Vector3
   target: [number, number]
-  scaleMul: number // multiplicateur final
-  baseLift: number // offset Y pour poser au sol après scale
+  scaleMul: number
+  baseLift: number
 }
 
 export type CharEntry = {
@@ -27,26 +27,26 @@ export interface Walker {
   obj: THREE.Object3D
   mixer: THREE.AnimationMixer
   walkAction?: THREE.AnimationAction | null
-  dir: THREE.Vector3         
-  speed: number            
-  life: number              
-  tileX: number              
-  tileZ: number              
-  axis: 'x'|'z'               
-  lateralPhase: number    
-  lateralFreq: number  
-  lateralAmp: number   
-  prevLat: number         
-  perp: THREE.Vector3  
+  dir: THREE.Vector3
+  speed: number
+  life: number
+  tileX: number
+  tileZ: number
+  axis: 'x' | 'z'
+  lateralPhase: number
+  lateralFreq: number
+  lateralAmp: number
+  prevLat: number
+  perp: THREE.Vector3
   state: 'walk' | 'turn' | 'idle'
-  turnT: number           
-  turnDur: number     
+  turnT: number
+  turnDur: number
   startQuat: THREE.Quaternion | null
   endQuat: THREE.Quaternion | null
   queuedDir: THREE.Vector3 | null
   baseSpeed: number
-  idleT: number           
-  idleDur: number       
+  idleT: number
+  idleDur: number
 }
 
 export interface City {
