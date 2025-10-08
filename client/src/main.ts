@@ -57,14 +57,24 @@ function setActive(m: CursorMode) {
   }
   if (prev !== m) painting = false;
 }
+const fab = document.getElementById("fab");
 const fabList = document.getElementById("fab-tools");
-if (fabList) {
-  fabList.addEventListener("click", (e) => {
-    const li = (e.target as HTMLElement).closest<HTMLLIElement>("li[data-tool]");
+if (fab && fabList) {
+  fab.addEventListener("click", (e) => {
+    fab.classList.toggle("active");
+    e.stopPropagation();
+  });
+  document.addEventListener("click", (e) => {
+    if (!fab.contains(e.target as Node)) fab.classList.remove("active");
+  });
+  fabList.addEventListener("click", (event) => {
+    const li = (event.target as HTMLElement).closest<HTMLLIElement>("li[data-tool]");
     if (!li) return;
     setActive(li.dataset.tool as CursorMode);
+    fab.classList.remove("active");
   });
 }
+
 
 // rotate piece
 function cyclePiece() {

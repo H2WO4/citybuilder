@@ -60,10 +60,10 @@ canvas { display: block; }
 .action.active span{ transform: rotate(135deg); }
 
 .action ul{
-  list-style:none; margin:0; color:#000000da; padding:14px 16px; position:absolute; top:0; left:70px;
+  list-style:none; margin:0; color:#000000da; padding:14px 16px; position:fixed; top: -250px; left:70px;
   background:#fdfdfd; min-width:220px; border:2px solid #222; border-radius:16px;
   box-shadow:0 4px 12px rgba(0,0,0,.25); opacity:0; visibility:hidden;
-  transform:translateX(-10px) scale(.95); transform-origin:left center;
+  transform:translateX(-10px) scale(.95);
   transition:opacity .25s ease, transform .25s ease; display:flex; flex-direction:column;
 }
 .action.active ul{ opacity:1; visibility:visible; transform:translateX(0) scale(1); }
