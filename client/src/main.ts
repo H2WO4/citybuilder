@@ -84,7 +84,125 @@ function showToast(msg:any){
   toast.textContent = msg;
   toast.style.opacity = "1";
   clearTimeout(toastT);
-  toastT = setTimeout(()=> toast.style.opacity="0", 1200);
+  toastT = setTimeout(() => toast.style.opacity = "0", 1200);
+}
+
+// ----- POPUPS MONETAIRES (stack + agrégation remboursements) -----
+interface MoneyPopupAggregate { amount:number; element:HTMLDivElement; timeout:any; lastTime:number; }
+const moneyPopupContainer = document.createElement('div');
+moneyPopupContainer.style.position = 'fixed';
+moneyPopupContainer.style.top = '60px';
+moneyPopupContainer.style.right = '14px';
+moneyPopupContainer.style.display = 'flex';
+moneyPopupContainer.style.flexDirection = 'column';
+moneyPopupContainer.style.alignItems = 'flex-end';
+moneyPopupContainer.style.gap = '4px';
+moneyPopupContainer.style.zIndex = '10002';
+document.body.appendChild(moneyPopupContainer);
+
+const REFUND_AGG_WINDOW = 450; // ms pour grouper plusieurs remboursements rapides
+let refundAggregate: MoneyPopupAggregate | null = null;
+const SPEND_AGG_WINDOW = 450;  // ms pour grouper plusieurs dépenses rapides
+let spendAggregate: MoneyPopupAggregate | null = null;
+
+function createMoneyPopup(text:string, color:string, key:string, pulse:boolean=false){
+  const div = document.createElement('div');
+  div.className = 'ui money-float';
+  Object.assign(div.style, {
+    background:'rgba(255,255,255,0.95)',
+    color,
+    fontWeight:'600',
+    padding:'4px 10px',
+    fontFamily:'system-ui, sans-serif',
+    fontSize:'14px',
+    borderRadius:'8px',
+    boxShadow:'0 2px 8px rgba(0,0,0,0.15)',
+    pointerEvents:'none',
+    opacity:'0',
+    transform:'translateY(-6px)',
+    transition:'opacity .25s, transform .4s',
+    position:'relative',
+    minWidth:'80px',
+    textAlign:'right'
+  });
+  div.dataset.kind = key;
+  div.textContent = text;
+  moneyPopupContainer.appendChild(div);
+  requestAnimationFrame(()=>{
+    div.style.opacity='1';
+    div.style.transform='translateY(0)';
+    if(pulse){
+      div.animate([
+        { transform:'translateY(0) scale(1.0)' },
+        { transform:'translateY(0) scale(1.07)' },
+        { transform:'translateY(0) scale(1.0)' }
+      ], { duration:260, easing:'ease-out' });
+    }
+  });
+  setTimeout(()=>{
+    div.style.opacity='0';
+    div.style.transform='translateY(-6px)';
+    setTimeout(()=> div.remove(), 400);
+  }, 1500);
+  return div;
+}
+
+function showRefund(amount:number){
+  const now = performance.now();
+  if(refundAggregate && (now - refundAggregate.lastTime) < REFUND_AGG_WINDOW){
+    refundAggregate.amount += amount;
+    refundAggregate.lastTime = now;
+    refundAggregate.element.textContent = '+'+fmtEUR.format(refundAggregate.amount);
+    refundAggregate.element.style.color = '#0f7d1f';
+    refundAggregate.element.animate([
+      { transform:'translateY(0) scale(1.0)' },
+      { transform:'translateY(0) scale(1.1)' },
+      { transform:'translateY(0) scale(1.0)' }
+    ], { duration:300, easing:'ease-out' });
+    clearTimeout(refundAggregate.timeout);
+    refundAggregate.timeout = setTimeout(()=>{
+      const el = refundAggregate?.element; if(el){ el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); }
+      refundAggregate = null;
+    }, 1500);
+    return;
+  }
+  // créer un nouveau popup agrégé
+  const el = createMoneyPopup('+'+fmtEUR.format(amount), '#0f7d1f', 'refund', true);
+  refundAggregate = {
+    amount,
+    element: el,
+    lastTime: now,
+    timeout: setTimeout(()=>{
+      el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); refundAggregate=null; }, 1500)
+  };
+}
+
+function showSpend(amount:number){
+  const now = performance.now();
+  if(spendAggregate && (now - spendAggregate.lastTime) < SPEND_AGG_WINDOW){
+    spendAggregate.amount += amount;
+    spendAggregate.lastTime = now;
+    spendAggregate.element.textContent = '-'+fmtEUR.format(spendAggregate.amount);
+    spendAggregate.element.style.color = '#b51212';
+    spendAggregate.element.animate([
+      { transform:'translateY(0) scale(1.0)' },
+      { transform:'translateY(0) scale(1.1)' },
+      { transform:'translateY(0) scale(1.0)' }
+    ], { duration:300, easing:'ease-out' });
+    clearTimeout(spendAggregate.timeout);
+    spendAggregate.timeout = setTimeout(()=>{
+      const el = spendAggregate?.element; if(el){ el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); }
+      spendAggregate = null;
+    }, 1500);
+    return;
+  }
+  const el = createMoneyPopup('-'+fmtEUR.format(amount), '#b51212', 'spend', true);
+  spendAggregate = {
+    amount,
+    element: el,
+    lastTime: now,
+    timeout: setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(-6px)'; setTimeout(()=> el.remove(),400); spendAggregate=null; }, 1500)
+  };
 }
 
 // ===== HUD Argent =====
@@ -102,39 +220,100 @@ let cursor:any = null;
 let preview:any = null;
 
 const fabList = document.getElementById("fab-tools");
-function updateFabActive(){
-  if(!fabList) return;
-  [...fabList.children].forEach(li=>{
-    if(li instanceof HTMLElement){
-      if(li.dataset.tool === mode) li.classList.add("active"); else li.classList.remove("active");
-    }
+function updateFabActive() {
+  if (!fabList) return;
+  [...fabList.children].forEach(el => {
+    const li = el as HTMLElement;
+    if (li.dataset.tool === mode) li.classList.add("active"); else li.classList.remove("active");
   });
 }
-function setActive(m:any){
+function setActive(m: any) {
+  // Ignore if already in this mode (except road piece cycling handled elsewhere)
+  const prevMode = mode;
   mode = m;
   updateFabActive();
   document.body.style.cursor = (m==="road"||m==="house"||m==="building")?"crosshair":m==="bulldozer"?"not-allowed":"default";
   if (typeof grid !== "undefined") grid.visible = (m !== "pan");
-  if (preview) preview.visible = ((m==="road"||m==="house"||m==="building") && !overUI(lastPointerEvent));
-  if ((m==="road"||m==="house"||m==="building") && !preview) makePreview();
+
+  // Adapter la couleur du curseur selon le mode
+  if (cursor && (cursor.material as any)) {
+    const mat = cursor.material as THREE.MeshBasicMaterial;
+    if (m === "bulldozer") {
+      mat.color.set(0xff0000); mat.opacity = 0.35;
+    } else if (m === "road" || m === "house" || m === "building") {
+      mat.color.set(0xffff00); mat.opacity = 0.25;
+    } else {
+      mat.color.set(0xffff00); mat.opacity = 0.20;
+    }
+    mat.transparent = true;
+  }
+
+  // For build modes always recreate preview to ensure correct model (fix house showing road)
+  if (m === "road" || m === "house" || m === "building") {
+    makePreview();
+    if (preview) preview.visible = !overUI(lastPointerEvent);
+  } else if (m === "bulldozer") {
+    // créer une "preview" rouge simple pour feedback (carré rouge sur la cellule)
+    if (preview) { scene.remove(preview); preview = null; }
+    const geo = GEO_PLACEMENT.clone();
+    const mat = new THREE.MeshBasicMaterial({ color:0xff0000, transparent:true, opacity:0.25 });
+    const plate = new THREE.Mesh(geo, mat);
+    plate.position.y = 0.0006;
+    preview = plate;
+    scene.add(preview);
+  } else {
+    if (preview) preview.visible = false;
+  }
+
+  // Reset rotation index if switching between categories? (Keep orientation consistent, so do nothing.)
+  // If leaving a build mode clear painting state
+  if (prevMode !== m && painting) painting = false;
 }
-if(fabList){
-  fabList.addEventListener("click", (e)=>{
-    const li = (e.target as HTMLElement).closest("li[data-tool]") as HTMLElement | null;
-    if(!li) return;
-    setActive(li.dataset.tool);
+if (fabList) {
+  fabList.addEventListener("click", (e) => {
+    const tgt = e.target as HTMLElement | null;
+    const li = tgt ? tgt.closest<HTMLLIElement>("li[data-tool]") : null;
+    if (!li) return;
+    const tool = li.dataset.tool;
+    if (tool) setActive(tool);
   });
 }
 
-// Cycle des routes
-let piece:"I"|"L"|"X" = "I";
-function cyclePiece(){
+// Sélection de variante route : cycle I -> L -> X au clavier (R)
+let piece = "I";
+function cyclePiece() {
+  // Only applies to road mode
   piece = piece === "I" ? "L" : piece === "L" ? "X" : "I";
-  updateCursor(true); makePreview();
+  updateCursor(true);
+  if (mode === "road") {
+    makePreview();
+    // Reposition la nouvelle preview sous le curseur au lieu du centre
+    if (lastPointerEvent) {
+      const p = screenToGround(lastPointerEvent);
+      if (p) {
+        const s = snapToCell(p);
+        updatePreviewPosition(s);
+      }
+    }
+  }
   showToast(`Route: ${piece}`);
 }
 addEventListener("keydown", (e)=>{
   if ((e.key === 'r' || e.key === 'R') && mode === 'road') { e.preventDefault(); cyclePiece(); }
+});
+
+// Raccourci clavier bulldozer (X) : toggle entre bulldozer et pan
+addEventListener("keydown", (e) => {
+  if (e.key === 'x' || e.key === 'X') {
+    e.preventDefault();
+    if (mode === 'bulldozer') {
+      setActive('pan');
+      showToast('Bulldozer désactivé');
+    } else {
+      setActive('bulldozer');
+      showToast('Bulldozer actif');
+    }
+  }
 });
 
 // ----- contrôles -----
@@ -206,68 +385,58 @@ makeCursor();
 // ====== CHARGEMENT DES GLB ======
 const gltfLoader = new GLTFLoader();
 
-type ModelRec = { path:string; prefab:THREE.Object3D|null; scale:THREE.Vector3; target:[number,number] };
-const MODELS:Record<string,ModelRec> = {
-  I:        { path: URL_STREET_I, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
-  L:        { path: URL_STREET_L, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
-  X:        { path: URL_STREET_X, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
-  HOUSE:    { path: URL_HOUSE,    prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
+type ModelKey = "I"|"L"|"X"|"HOUSE"|"BUILDING";
+interface ModelEntry { path:string; prefab:THREE.Object3D|null; scale:THREE.Vector3; target:[number,number]; }
+const MODELS: Record<ModelKey, ModelEntry> = {
+  I: { path: URL_STREET_I, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
+  L: { path: URL_STREET_L, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
+  X: { path: URL_STREET_X, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
+  HOUSE: { path: URL_HOUSE, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] },
   BUILDING: { path: URL_BUILDING, prefab: null, scale: new THREE.Vector3(), target: [CELL, CELL] }
 };
 
-// centre chaque GLB et scale 1 cellule
-function preparePrefab(root:THREE.Object3D, targetX:number, targetZ:number){
-  const box = new THREE.Box3().setFromObject(root);
-  const size = new THREE.Vector3(); box.getSize(size);
-  const center = new THREE.Vector3(); box.getCenter(center);
-
-  const pivot = new THREE.Group();
-  pivot.name = "PrefabPivot";
-  pivot.add(root);
-  root.position.sub(center);
-
-  const sX = size.x > 1e-6 ? targetX / size.x : 1;
-  const sZ = size.z > 1e-6 ? targetZ / size.z : 1;
-  const sY = 0.5 * (sX + sZ);
-  const scale = new THREE.Vector3(sX, sY, sZ);
-
-  return { prefab: pivot, scale };
-}
-
-for (const key of Object.keys(MODELS)){
-  gltfLoader.load(MODELS[key].path,(gltf)=>{
-    const root = gltf.scene;
-    root.traverse((o:any)=>{
-      if(o.isMesh&&o.material){
-        o.material.metalness=0; o.material.roughness=1;
-        o.castShadow=o.receiveShadow=true;
+for (const key of Object.keys(MODELS) as ModelKey[]) {
+  const entry = MODELS[key];
+  gltfLoader.load(entry.path, (gltf: any) => {
+    const root: THREE.Object3D = gltf.scene as THREE.Object3D;
+    root.traverse((obj: THREE.Object3D) => {
+      const mesh = obj as THREE.Mesh;
+      if ((mesh as any).isMesh && mesh.material) {
+        const mat = mesh.material as any;
+        mat.metalness = 0; mat.roughness = 1;
+        mesh.castShadow = mesh.receiveShadow = true;
       }
     });
-
-    const [targetX, targetZ] = MODELS[key].target;
-    const { prefab, scale } = preparePrefab(root, targetX, targetZ);
-
-    MODELS[key].prefab = prefab;
-    MODELS[key].scale.copy(scale);
-
-    if ((key === piece) || (key === "HOUSE" && mode==="house") || (key==="BUILDING" && mode==="building")) makePreview();
-  },undefined,(e)=>console.error("GLB load error:", key, MODELS[key].path, e));
+    const box = new THREE.Box3().setFromObject(root);
+    const sz = new THREE.Vector3(); box.getSize(sz);
+    const [targetX, targetZ] = entry.target;
+    const sX = (sz.x > 1e-6) ? targetX / sz.x : 1;
+    const sZ = (sz.z > 1e-6) ? targetZ / sz.z : 1;
+    const sY = 0.5 * (sX + sZ);
+    entry.scale.set(sX, sY, sZ);
+    entry.prefab = root;
+    if ((key === piece) || (key === "HOUSE" && mode === "house") || (key === "BUILDING" && mode === "building")) makePreview();
+  }, undefined, (e) => console.error("GLB load error:", key, entry.path, e));
 }
 
 // ----- PREVIEW -----
-function makePreview(){
-  if (preview){ scene.remove(preview); preview = null; }
-  const key = (mode==="house") ? "HOUSE" : (mode==="building" ? "BUILDING" : piece);
-  const M = MODELS[key]; if (!M || !M.prefab) return;
+function makePreview() {
+  if (preview) { scene.remove(preview); preview = null; }
+  let key: ModelKey;
+  if (mode === "house") key = "HOUSE"; else if (mode === "building") key = "BUILDING"; else key = piece as ModelKey;
+  const M = MODELS[key];
+  if (!M || !M.prefab) return; // model pas encore chargé
   const obj = M.prefab.clone(true);
   obj.scale.copy(M.scale);
   obj.rotation.y = ANG[angleIndex];
-  obj.position.y = Z_PREVIEW;
-  obj.traverse((n:any)=>{
-    if(n.isMesh){
-      const mat = n.material.clone();
+  obj.position.y = 0.0006;
+  obj.traverse((n: THREE.Object3D) => {
+    const mesh = n as THREE.Mesh;
+    if ((mesh as any).isMesh && mesh.material) {
+      const baseMat = mesh.material as THREE.Material;
+      const mat = baseMat.clone() as any;
       mat.transparent = true; mat.opacity = 0.5; mat.depthWrite = false;
-      n.material = mat;
+      mesh.material = mat;
     }
   });
   obj.userData.isPreview = true;
@@ -306,8 +475,9 @@ function removeGroundPlate(plate:any){
 }
 
 // ----- création d’un objet placé -----
-function buildPlacedObject(kind:any){
-  const key = (kind==="house") ? "HOUSE" : (kind==="building" ? "BUILDING" : piece);
+function buildPlacedObject(kind: string) {
+  let key: ModelKey;
+  if (kind === "house") key = "HOUSE"; else if (kind === "building") key = "BUILDING"; else key = piece as ModelKey;
   const M = MODELS[key];
   if (!M || !M.prefab) return null;
   const obj = M.prefab.clone(true);
@@ -346,8 +516,8 @@ function placeRoad(wx:any,wz:any){
   obj.position.set(wx,Z_ROAD,wz);
   scene.add(obj);
   roads.set(id, obj);
-  money -= ROAD_COST; renderMoney();
-  lastPlaceError="";
+  money -= ROAD_COST; renderMoney(); showSpend(ROAD_COST);
+  lastPlaceError = "";
   return true;
 }
 
@@ -363,8 +533,8 @@ function placeHouse(wx:any,wz:any){
   obj.position.set(wx,Z_ROAD,wz);
   scene.add(obj);
   houses.set(id, obj);
-  money -= HOUSE_COST; renderMoney();
-  lastPlaceError="";
+  money -= HOUSE_COST; renderMoney(); showSpend(HOUSE_COST);
+  lastPlaceError = "";
   return true;
 }
 
@@ -380,8 +550,8 @@ function placeBuilding(wx:any,wz:any){
   obj.position.set(wx,Z_ROAD,wz);
   scene.add(obj);
   buildings.set(id, obj);
-  money -= BUILDING_COST; renderMoney();
-  lastPlaceError="";
+  money -= BUILDING_COST; renderMoney(); showSpend(BUILDING_COST);
+  lastPlaceError = "";
   return true;
 }
 
@@ -406,13 +576,22 @@ function eraseAtPointer(event:any){
   removeGroundPlate(root.userData?.groundPlate);
 
   scene.remove(root);
-  root.traverse((n:any)=>{ if(n.isMesh){ n.geometry?.dispose(); if(n.material?.map) n.material.map.dispose(); n.material?.dispose?.(); }});
-  bag.delete(hitKey);
-
+  root.traverse((n: THREE.Object3D) => {
+    const mesh = n as THREE.Mesh;
+    if ((mesh as any).isMesh) {
+      (mesh.geometry as any)?.dispose();
+      const mat: any = mesh.material;
+      if (mat?.map) mat.map.dispose();
+      mat?.dispose?.();
+    }
+  });
+  if (bag) bag.delete(hitKey as any);
+  // Remboursement : route 100%, maison / building 50%
   const full = root.userData?.cost ?? 0;
   let refund = full;
   if (root.userData?.kind === 'house' || root.userData?.kind === 'building') refund = Math.round(full * 0.5);
   money += refund; renderMoney();
+  if (refund > 0) showRefund(refund);
 }
 
 // ----- interactions -----
@@ -429,15 +608,23 @@ function cancelPlacement(showMsg=true){
 
 addEventListener("pointermove", e=>{
   lastPointerEvent = e;
-  if (overUI(e)) { if(cursor) cursor.visible=false; if(preview) preview.visible=false; return; }
-  const p=screenToGround(e); if(!p){ if(cursor) cursor.visible=false; if(preview) preview.visible=false; return; }
-  const s=snapToCell(p);
-  if(cursor){ cursor.visible=(mode!=="pan"); cursor.position.set(s.x, Z_CURSOR, s.z); }
-  if(preview){ preview.visible = (mode==="road"||mode==="house"||mode==="building"); updatePreviewPosition(s); updatePreviewRotation(); }
-  if(mode==="road" && painting)      placeRoad(s.x,s.z);
-  if(mode==="house" && painting)     placeHouse(s.x,s.z);
-  if(mode==="building" && painting)  placeBuilding(s.x,s.z);
-  if(mode==="bulldozer" && painting) eraseAtPointer(e);
+  if (overUI(e)) { if (cursor) cursor.visible = false; if (preview) preview.visible = false; return; }
+  const p = screenToGround(e); if (!p) { if (cursor) cursor.visible = false; if (preview) preview.visible = false; return; }
+  const s = snapToCell(p);
+  if (cursor) { cursor.visible = (mode !== "pan"); cursor.position.set(s.x, 0.001, s.z); }
+  if (preview) {
+    if (mode === "road" || mode === "house" || mode === "building" || mode === 'bulldozer') {
+      preview.visible = true;
+      updatePreviewPosition(s);
+      if (mode !== 'bulldozer') updatePreviewRotation();
+    } else {
+      preview.visible = false;
+    }
+  }
+  if (mode === "road" && painting) placeRoad(s.x, s.z);
+  if (mode === "house" && painting) placeHouse(s.x, s.z);
+  if (mode === "building" && painting) placeBuilding(s.x, s.z);
+  if (mode === "bulldozer" && painting) eraseAtPointer(e);
 });
 
 addEventListener("pointerdown", e=>{

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>City Builder</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <!-- scripts locaux -->
+  <script type="module" src="./main.js"></script>
+  <script src="./ui.js" defer></script>
+
+  <div class="action ui" id="fab" aria-label="Menu actions" role="button" style="z-index:10001;">
+    <span>+</span>
+    <ul id="fab-tools">
+      <li data-tool="pan">🖐️ Navigation</li>
+      <li data-tool="road">🛣️ Route</li>
+      <li data-tool="house">🏠 Maison</li>
+      <li data-tool="building">🏢 Immeuble</li>
+    </ul>
+  </div>
+</body>
+</html>
