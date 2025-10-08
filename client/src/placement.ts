@@ -43,6 +43,19 @@ export function updateCursorOrient() { if (cursor) cursor.rotation.y = ANG[angle
 
 export function makePreview() {
   if (preview) { scene.remove(preview); preview = null; }
+  // Bulldozer: simple red cell indicator, not a building/road model
+  if (mode === "bulldozer") {
+    const geo = new THREE.PlaneGeometry(CELL*0.9, CELL*0.9).rotateX(-Math.PI/2);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff3333, transparent: true, opacity: 0.85 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = Z_PREVIEW + 0.0002;
+    mesh.renderOrder = 50;
+    mesh.userData.baseLift = 0;
+    preview = mesh;
+    preview.visible = true;
+    scene.add(preview);
+    return;
+  }
   let key: ModelKey =
     mode === "house" ? "HOUSE" :
       mode === "building" ? "BUILDING" :
@@ -62,7 +75,16 @@ export function makePreview() {
   obj.traverse((n: any) => {
     if (n.isMesh && n.material) {
       const m = n.material.clone();
-      m.transparent = true; m.opacity = 0.5; m.depthWrite = false;
+      if (mode === "bulldozer") {
+        if (m.color && typeof m.color.set === "function") {
+          m.color.set(0xff3333);
+        }
+        m.opacity = 0.6;
+      } else {
+        m.opacity = 0.5;
+      }
+      m.transparent = true;
+      m.depthWrite = false;
       n.material = m;
     }
   });
