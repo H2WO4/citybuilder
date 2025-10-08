@@ -17,6 +17,7 @@ import URL_HOODIE_CHARACTER from "../texture_models/character/HoodieCharacter.gl
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import * as UI from "./ui";
 
+// Init
 UI.init();
 
 // ----- paramètres -----
