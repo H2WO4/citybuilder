@@ -44,7 +44,8 @@ export function loadStaticModels(onModelReady: (k:ModelKey)=>void){
       root.traverse((obj:any)=>{
         if (obj.isMesh && obj.material){
           obj.material.metalness = 0; obj.material.roughness = 1;
-          obj.castShadow = obj.receiveShadow = true;
+          obj.castShadow = true;
+          obj.receiveShadow = true;
         }
       });
       const box = new THREE.Box3().setFromObject(root);

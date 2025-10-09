@@ -5,9 +5,17 @@ import { Z_GROUND, Z_GRID, STEP, MIN_ZOOM, MAX_ZOOM, align } from "./constants";
 
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x55aa55);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
-const sun = new THREE.DirectionalLight(0xffffff, 2);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4);
 sun.position.set(50, 100, 50); scene.add(sun); scene.add(sun.target);
+// Shadows for sunlight
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.bias = -0.0004;
+// Slight blur for softer pixels
+(sun.shadow as any).radius = 3;
+// normalBias reduces acne on detailed normals (r180+)
+(sun.shadow as any).normalBias = 0.4;
 
 let viewSize = 40;
 export const CAM_TARGET = new THREE.Vector3(0, 0, 0);
@@ -28,6 +36,8 @@ renderer.setPixelRatio(devicePixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.setClearColor(0x55aa55);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // smoother filtering to reduce pixelation
 document.body.appendChild(renderer.domElement);
 
 export const stats = new Stats();
@@ -41,7 +51,10 @@ controls.screenSpacePanning = true;
 controls.enableDamping = true;
 (controls.mouseButtons as any).LEFT = null;
 (controls.mouseButtons as any).RIGHT = THREE.MOUSE.PAN;
-controls.addEventListener("change", () => camera.position.y = Math.max(camera.position.y, 1));
+controls.addEventListener("change", () => {
+  camera.position.y = Math.max(camera.position.y, 1);
+  updateSunShadowForView();
+});
 controls.target.copy(CAM_TARGET);
 
 let camRotAnim: { t0: number; dur: number; a0: number; a1: number; R: number; y: number } | null = null;
@@ -81,10 +94,11 @@ grid.renderOrder = 1; scene.add(grid);
 
 export const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(4096, 4096),
-  new THREE.MeshBasicMaterial({ color: 0x55aa55 })
+  new THREE.MeshPhongMaterial({ color: 0x55aa55 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = Z_GROUND;
+ground.receiveShadow = true;
 scene.add(ground);
 
 export function updateGrid() {
@@ -95,6 +109,25 @@ export function updateGrid() {
 export function clampZoom() {
   camera.zoom = THREE.MathUtils.clamp(camera.zoom, MIN_ZOOM, MAX_ZOOM);
   camera.updateProjectionMatrix();
+  updateSunShadowForView();
 }
 
 export const fpsHud = document.getElementById("fps-hud") as HTMLDivElement;
+
+// Fit the sun shadow camera to current view to increase texel density (less pixelation)
+export function updateSunShadowForView() {
+  // Center light target on current map controls target
+  sun.target.position.copy(controls.target);
+  sun.position.set(controls.target.x + 50, controls.target.y + 100, controls.target.z + 50);
+
+  const halfW = (camera.right - camera.left) * 0.5;
+  const halfH = (camera.top - camera.bottom) * 0.5;
+  const half = Math.max(halfW, halfH) * 1.25; // margin
+  const cam = sun.shadow.camera as THREE.OrthographicCamera;
+  cam.left = -half; cam.right = half; cam.top = half; cam.bottom = -half;
+  cam.near = 1; cam.far = 2000;
+  cam.updateProjectionMatrix();
+}
+
+// Initial shadow fit
+updateSunShadowForView();
