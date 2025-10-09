@@ -4,6 +4,12 @@ export const fmtEUR = new Intl.NumberFormat("fr-FR", { style: "currency", curren
 export function renderMoney() { if (hud) hud.textContent = fmtEUR.format(money); }
 renderMoney();
 
+// Mutateur de solde + rendu HUD
+export function addMoney(delta: number) {
+  money += delta;
+  renderMoney();
+}
+
 const toast = document.getElementById("toast") as HTMLDivElement;
 let toastT: any = null;
 export function showToast(msg: any) {
