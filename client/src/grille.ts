@@ -5,7 +5,7 @@ import { getSelectedCity } from "./state";
 import { post_one as postBuilding, get_all_from_city as getAllBuildingsForCity, type BuildingData } from "./server/buildings";
 import { get_all as getAllCities } from "./server/cities";
 import { addMoney, showSpend, showToast } from "./ui";
-import { buildPlacedObject, removeObject, getAngle } from "./placement";
+import { buildPlacedObject, removeObject, getAngle, houses, buildings as placedBuildings, roads, wells as placedWells, turbines as placedTurbines, sawmills as placedSawmills, keyFromCenter } from "./placement";
 import STR from "./strings";
 import type { Building } from "./types";
 
@@ -93,6 +93,26 @@ export async function seedExampleBuildings(data?: Building[]) {
       ;(obj as any).userData = { ...(obj as any).userData, example: true }
       scene.add(obj)
       exampleBuildings.set(obj.uuid, obj)
+      try {
+        // also register in the placement bags so bulldozer can find these seeded objects
+        const id = keyFromCenter(wx, wz)
+        const t = (b as any).type as string
+        if (t === "house") {
+          houses.set(id, obj)
+        } else if (t === "building") {
+          placedBuildings.set(id, obj)
+        } else if (t === "road") {
+          roads.set(id, obj)
+        } else if (t === "well") {
+          placedWells.set(id, obj)
+        } else if (t === "turbine") {
+          placedTurbines.set(id, obj)
+        } else if (t === "sawmill") {
+          placedSawmills.set(id, obj)
+        }
+      } catch (e) {
+        // ignore registration errors
+      }
       if ((b as any)._id) {
         ;(obj as any).userData._id = (b as any)._id
       }
@@ -105,6 +125,18 @@ export async function seedExampleBuildings(data?: Building[]) {
 export function clearExampleBuildings() {
   for (const obj of exampleBuildings.values()) {
     try {
+      // remove from placement bags if present
+      try {
+        const id = keyFromCenter(obj.position.x, obj.position.z)
+        houses.delete(id)
+        placedBuildings.delete(id)
+        roads.delete(id)
+        placedWells.delete(id)
+        placedTurbines.delete(id)
+        placedSawmills.delete(id)
+      } catch (e) {
+        // ignore
+      }
       removeObject(obj)
     } catch (e) {
       console.warn("clearExampleBuildings: failed to remove", e)

@@ -10,7 +10,7 @@ import {
   clampZoom,
   scene
 } from "./scene"
-import { updateGrid, snapToCell } from "./grille"
+import { updateGrid, snapToCell, worldToCellIndex } from "./grille"
 import { loadStaticModels, loadCharacters } from "./models"
 import type { BuildingKind, CursorMode } from "./types"
 import {
@@ -38,7 +38,7 @@ import { updateWalkers } from "./npc"
 import { showToast } from "./ui"
 import { placeBuilding, seedExampleBuildings, clearExampleBuildings } from "./grille"
 import { get_all as getAllCities } from "./server/cities"
-import { get_all_from_city as getAllBuildingsForCity } from "./server/buildings"
+import { delete_one, get_all_from_city as getAllBuildingsForCity } from "./server/buildings"
 import { setSelectedCity } from "./state"
 
 // input helpers
@@ -410,6 +410,34 @@ addEventListener("pointerdown", (e) => {
               })
             })
           }
+          // server-backed delete: prefer using city+position; fall back to _id if present
+          ;(async () => {
+            try {
+              const city = (await import("./state")).getSelectedCity()
+              if (city) {
+                try {
+                  // use the shared worldToCellIndex logic to compute tile indices
+                  const { ix, iz } = worldToCellIndex(obj.position as any)
+                  await delete_one({ city, position: { x: ix, y: iz } })
+                } catch (e) {
+                  // if delete by position fails, try delete by _id via server (not implemented server-side)
+                  console.warn("server delete failed, continuing local removal", e)
+                }
+                // refresh examples from server so the scene matches backend
+                try {
+                  const { clearExampleBuildings, seedExampleBuildings } = await import("./grille")
+                  const { get_all_from_city } = await import("./server/buildings")
+                  clearExampleBuildings()
+                  const all = await get_all_from_city(city)
+                  await seedExampleBuildings(all)
+                } catch (e) {
+                  console.warn("failed to refresh buildings after delete", e)
+                }
+              }
+            } catch (e) {
+              console.warn("bulldozer: delete flow error", e)
+            }
+          })()
           found = true
           showToast("Bâtiment supprimé")
           break
