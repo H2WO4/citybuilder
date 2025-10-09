@@ -1,7 +1,7 @@
 import * as THREE from "three"
 import { MapControls } from "three/examples/jsm/controls/MapControls.js"
 import Stats from "three/examples/jsm/libs/stats.module.js"
-import { Z_GROUND, Z_GRID, STEP, MIN_ZOOM, MAX_ZOOM, align } from "./constants"
+import { Z_GROUND, MIN_ZOOM, MAX_ZOOM } from "./constants"
 
 export const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x55aa55)
@@ -82,15 +82,6 @@ export function stepCameraRotation(now: number) {
   }
 }
 
-export const GRID_DIV = 800
-export const GRID_SIZE = GRID_DIV * STEP
-export const grid = new THREE.GridHelper(GRID_SIZE, GRID_DIV, 0x000000, 0x000000)
-;(grid.material as any).transparent = true
-;(grid.material as any).opacity = 0.35
-;(grid.material as any).depthWrite = false
-;(grid.material as any).depthTest = true
-grid.renderOrder = 1
-scene.add(grid)
 
 export const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(4096, 4096),
@@ -100,10 +91,7 @@ ground.rotation.x = -Math.PI / 2
 ground.position.y = Z_GROUND
 scene.add(ground)
 
-export function updateGrid() {
-  grid.position.set(align(camera.position.x), Z_GRID, align(camera.position.z))
-  grid.rotation.x = 0
-}
+// Grid moved to `grille.ts`
 
 export function clampZoom() {
   camera.zoom = THREE.MathUtils.clamp(camera.zoom, MIN_ZOOM, MAX_ZOOM)
