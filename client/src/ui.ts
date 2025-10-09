@@ -1,4 +1,4 @@
-export const money = 200000
+export let money = 200000
 const hud = document.getElementById("money-hud") as HTMLElement
 export const fmtEUR = new Intl.NumberFormat("fr-FR", {
   style: "currency",
