@@ -7,12 +7,11 @@ import {
   setOrtho,
   rotateCameraQuarter,
   stepCameraRotation,
-  updateGrid,
   clampZoom,
   scene
 } from "./scene"
+import { updateGrid, snapToCell } from "./grille"
 import { loadStaticModels, loadCharacters } from "./models"
-import { CELL } from "./constants"
 import type { BuildingKind, CursorMode } from "./types"
 import {
   makeCursor,
@@ -37,6 +36,10 @@ import {
 } from "./placement"
 import { updateWalkers } from "./npc"
 import { showToast } from "./ui"
+import { placeBuilding, seedExampleBuildings, clearExampleBuildings } from "./grille"
+import { get_all as getAllCities } from "./server/cities"
+import { get_all_from_city as getAllBuildingsForCity } from "./server/buildings"
+import { setSelectedCity } from "./state"
 
 // input helpers
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
@@ -52,14 +55,85 @@ function screenToGround(e: PointerEvent) {
 function overUI(e: any) {
   return !!(e && e.target && (e.target as HTMLElement).closest(".ui"))
 }
-function snapToCell(v: THREE.Vector3) {
-  const x = Math.floor(v.x / CELL) * CELL + CELL * 0.5
-  const z = Math.floor(v.z / CELL) * CELL + CELL * 0.5
-  return new THREE.Vector3(x, 0, z)
-}
+
 
 // mode + UI
 let currentMode: CursorMode = "pan"
+
+// city selector wiring
+async function initCitySelector() {
+  const citySelectEl = document.getElementById('city-select') as HTMLSelectElement | null
+  if (!citySelectEl) return
+  citySelectEl.innerHTML = '<option value="">Chargement...</option>'
+  try {
+    const cities = await getAllCities()
+    citySelectEl.innerHTML = ''
+    if (!cities || cities.length === 0) {
+      citySelectEl.innerHTML = '<option value="">Aucune ville</option>'
+      return
+    }
+    const saved = localStorage.getItem('selectedCity')
+    for (const c of cities) {
+      const opt = document.createElement('option')
+      opt.value = (c as any)._id
+      // show name + uuid so user can see the id
+      opt.textContent = `${(c as any).name || (c as any)._id} — ${(c as any)._id}`
+      citySelectEl.appendChild(opt)
+    }
+    if (saved) {
+      citySelectEl.value = saved
+      setSelectedCity(saved)
+      // seed buildings for saved city
+      try {
+        const b = await getAllBuildingsForCity(saved)
+        clearExampleBuildings()
+        await seedExampleBuildings(b)
+      } catch (e) {
+        console.warn('failed to seed saved city', e)
+      }
+    } else {
+      // no saved selection: try to auto-select Amiens if present
+      const amiens = cities.find((c: any) => ((c.name || '') as string).toLowerCase() === 'amiens')
+      if (amiens) {
+        const id = (amiens as any)._id
+        citySelectEl.value = id
+        setSelectedCity(id)
+        localStorage.setItem('selectedCity', id)
+        try {
+          const b = await getAllBuildingsForCity(id)
+          clearExampleBuildings()
+          await seedExampleBuildings(b)
+        } catch (e) {
+          console.warn('failed to seed Amiens', e)
+        }
+      }
+    }
+    citySelectEl.addEventListener('change', async () => {
+      const v = citySelectEl.value || null
+      if (v) {
+        setSelectedCity(v)
+        localStorage.setItem('selectedCity', v)
+        // clear existing examples and re-seed from the selected city
+        clearExampleBuildings()
+        try {
+          const buildings = await getAllBuildingsForCity(v)
+          await seedExampleBuildings(buildings)
+        } catch (e) {
+          console.warn('failed to load buildings for city', e)
+        }
+      } else {
+        setSelectedCity(null)
+        localStorage.removeItem('selectedCity')
+      }
+    })
+  } catch (e) {
+    console.warn('initCitySelector failed', e)
+    citySelectEl.innerHTML = '<option value="">Erreur</option>'
+  }
+}
+
+// ensure selector is initialized once DOM is ready (script may run before DOM)
+document.addEventListener('DOMContentLoaded', () => initCitySelector())
 function updateFabActive() {
   const fabList = document.getElementById("fab-tools")
   if (!fabList) {
@@ -115,6 +189,7 @@ const fabList = document.getElementById("fab-tools")
 if (fab && fabList) {
   fab.addEventListener("click", (e) => {
     fab.classList.toggle("active")
+    // Opening the tools should no longer clear example buildings.
     e.stopPropagation()
   })
   document.addEventListener("click", (e) => {
@@ -246,8 +321,7 @@ addEventListener("pointermove", (e) => {
   tryPlace(currentMode, s.x, s.z)
 })
 
-function tryPlace(m: CursorMode, x: number, z: number) {
-  const needRoad = m !== "road"
+async function tryPlace(m: CursorMode, x: number, z: number) {
   const cost =
     m === "road"
       ? 200
@@ -272,10 +346,33 @@ function tryPlace(m: CursorMode, x: number, z: number) {
             : m === "turbine"
               ? turbines
               : sawmills
-  const res = placeGeneric(x, z, cost, bag, m as BuildingKind, { requireRoad: needRoad })
-  if (!res.ok) {
-    if ((m === "house" || m === "building") && res.err === "no_road") {
-      showToast("Besoin d’une route adjacente pour placer ici")
+  // Try to persist via backend (grille.placeBuilding). If there's no selected city
+  // the function will return ok:false with err:'no_city' and we fallback to
+  // local placement using placeGeneric.
+  try {
+    const pb = await placeBuilding(m, x, z, cost)
+    if (pb.ok) {
+      return
+    }
+    if (pb.err === "no_city") {
+  const res = placeGeneric(x, z, cost, bag, m as BuildingKind)
+      if (!res.ok) {
+        if ((m === "house" || m === "building") && res.err === "no_road") {
+          showToast("Besoin d’une route adjacente pour placer ici")
+        }
+      }
+      return
+    }
+    // pb.err === 'server' => already handled by placeBuilding via toast
+    return
+  } catch (e) {
+    console.log(e)
+    // unexpected error — fallback to local placement
+  const res = placeGeneric(x, z, cost, bag, m as BuildingKind)
+    if (!res.ok) {
+      if ((m === "house" || m === "building") && res.err === "no_road") {
+        showToast("Besoin d’une route adjacente pour placer ici")
+      }
     }
     return
   }
@@ -344,6 +441,11 @@ loadStaticModels((k) => {
   if (k === "I" || k === "L" || k === "X" || k === "HOUSE" || k === "BUILDING") {
     makePreview()
   }
+  // Initialize city selector then seed example buildings so the
+  // player arriving to the scene sees sample content immediately.
+  initCitySelector().then(() => {
+    seedExampleBuildings()
+  })
 })
 loadCharacters()
 
@@ -384,3 +486,5 @@ function tick() {
   requestAnimationFrame(tick)
 }
 requestAnimationFrame(tick)
+
+

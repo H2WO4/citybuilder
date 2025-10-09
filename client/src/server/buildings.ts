@@ -9,7 +9,7 @@ export async function get_all_from_city(uuid: UUID): Promise<Building[]> {
   return result
 }
 
-interface BuildingData {
+export interface BuildingData {
   city: UUID
 
   type: string

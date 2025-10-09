@@ -8,6 +8,7 @@ services:
     profiles:
       - backend
     environment:
+      PORT: 3000
       DB_HOST: db
       DB_PORT: 27017
       DB_BASE: main
