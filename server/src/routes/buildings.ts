@@ -1,7 +1,7 @@
-import { Request, Response } from 'express'
+import { Request, Response } from "express"
 
-import { APP } from '..';
-import { Buildings } from '../models/building';
+import { APP } from ".."
+import { Buildings } from "../models/building"
 
 export function init() {
   APP.get("/buildings/:city", get_all_from_city)
@@ -9,39 +9,31 @@ export function init() {
 }
 
 async function get_all_from_city(req: Request, res: Response) {
-  let city = req.params.city
+  const city = req.params.city
 
   try {
-    let result = await Buildings.find({ city })
+    const result = await Buildings.find({ city })
 
-    res
-      .status(200)
-      .json(result)
+    res.status(200).json(result)
   } catch (e) {
     console.log(e)
-    res
-      .status(404)
-      .send("not found")
+    res.status(404).send("not found")
   }
 }
 
 async function post_one(req: Request, res: Response) {
-  let city = req.body.city
-  let position = req.body.position
-  let orientation = req.body.orientation
-  let type = req.body.type
+  const city = req.body.city
+  const position = req.body.position
+  const orientation = req.body.orientation
+  const type = req.body.type
 
   try {
-    let result = await Buildings.insertOne({ city, type, position, orientation })
+    const result = await Buildings.insertOne({ city, type, position, orientation })
 
-    res
-      .status(201)
-      .json(result)
+    res.status(201).json(result)
   } catch (e) {
     console.log(e)
 
-    res
-      .status(400)
-      .send("invalid arguments")
+    res.status(400).send("invalid arguments")
   }
 }

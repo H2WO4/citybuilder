@@ -13,6 +13,28 @@ profiles:
       host: http://localhost:3000
 
 requests:
+  accounts:
+    name: Accounts
+    requests:
+      a_login:
+        name: Login
+        method: POST
+        url: "{{ host }}/login"
+        body:
+          type: json
+          data:
+            name: "{{ prompt(message='Name') }}"
+            pass: "{{ prompt(message='Pass') }}"
+      a_post_one:
+        name: Post One
+        method: POST
+        url: "{{ host }}/accounts"
+        body:
+          type: json
+          data:
+            name: "{{ prompt(message='Name') }}"
+            pass: "{{ prompt(message='Pass') }}"
+      
   cities:
     name: Cities
     requests:

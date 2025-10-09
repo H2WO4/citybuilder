@@ -1,7 +1,7 @@
-import { Request, Response } from 'express'
+import { Request, Response } from "express"
 
-import { APP } from '..';
-import { Cities } from '../models/city';
+import { APP } from ".."
+import { Cities } from "../models/city"
 
 export function init() {
   APP.get("/cities", get_all)
@@ -13,63 +13,48 @@ export function init() {
 async function get_all(_: Request, res: Response) {
   let all_cities = await Cities.find()
 
-  res
-    .status(200)
-    .json(all_cities)
+  res.status(200).json(all_cities)
 }
 
 async function post_one(req: Request, res: Response) {
-  let name = req.body.name
+  const name = req.body.name
 
   try {
     let result = await Cities.insertOne({ name })
 
-    res
-      .status(201)
-      .json(result)
+    res.status(201).json(result)
   } catch (e) {
     console.log(e)
 
-    res
-      .status(400)
-      .send("invalid arguments")
+    res.status(400).send("invalid arguments")
   }
 }
 
-
 async function patch_one(req: Request, res: Response) {
-  let id = req.params.id
-  let name = req.body.name
+  const id = req.params.id
+  const name = req.body.name
 
   try {
-    let result = await Cities.findOneAndUpdate({ _id: id }, { name })
+    const result = await Cities.findOneAndUpdate({ _id: id }, { name })
 
-    res
-      .status(201)
-      .json(result)
+    res.status(201).json(result)
   } catch (e) {
     console.log(e)
 
-    res
-      .status(400)
-      .send("invalid arguments")
+    res.status(400).send("invalid arguments")
   }
 }
 
 async function delete_by_id(req: Request, res: Response) {
-  let id = req.params.id
+  const id = req.params.id
 
   try {
     await Cities.findByIdAndDelete(id)
 
-    res
-      .status(204)
-      .send()
+    res.status(204).send()
   } catch (e) {
     console.log(e)
 
-    res
-      .status(404)
-      .send("not found")
+    res.status(404).send("not found")
   }
 }
