@@ -3,7 +3,7 @@ import { scene } from "./scene";
 import { ANG, CELL, Z_CURSOR, Z_PREVIEW, Z_ROAD } from "./constants";
 import { MODELS } from "./models";
 import type { CursorMode, BuildingKind, ModelKey } from "./types";
-import { money } from "./ui";
+import { money, addMoney, showSpend } from "./ui";
 
 export let mode: CursorMode = "pan";
 export let piece: "I" | "L" | "X" = "I";
@@ -153,6 +153,9 @@ export function placeGeneric(
   obj.position.set(wx, obj.position.y, wz);
   scene.add(obj);
   bag.set(id, obj);
+  // débit du coût et popup
+  addMoney(-cost);
+  showSpend(cost);
   return { ok: true, err: "" };
 }
 
