@@ -9,7 +9,7 @@ export async function get_all_from_city(uuid: UUID): Promise<Building[]> {
   return result
 }
 
-interface BuildingData {
+export interface BuildingData {
   city: UUID
 
   type: string
@@ -26,4 +26,19 @@ export async function post_one(data: BuildingData): Promise<Building[]> {
   const result = (await response.json()) as Building[]
 
   return result
+}
+
+export interface PositionData {
+  city: UUID
+
+  position: {
+    x: number
+    y: number
+  }
+}
+
+export async function delete_one(data: PositionData): Promise<void> {
+  await query("POST", "/buildings", data)
+
+  return
 }
