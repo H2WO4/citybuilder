@@ -301,7 +301,7 @@ addEventListener("pointerdown", (e) => {
         if (obj) {
           bag.delete(id)
           // @ts-ignore
-          import("./placement").then(m => m.removeObject(obj))
+          import("./placement").then((m) => m.removeObject(obj))
           // remboursement partiel
           const cost = (obj as any).userData?.cost ?? 0
           if (cost > 0) {
@@ -313,9 +313,9 @@ addEventListener("pointerdown", (e) => {
               })
             })
           }
-          found = true;
-          showToast("Bâtiment supprimé");
-          break;
+          found = true
+          showToast("Bâtiment supprimé")
+          break
         }
       }
       if (!found) {
