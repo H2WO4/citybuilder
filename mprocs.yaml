@@ -1,4 +1,5 @@
 procs:
+  # Front
   client-run:
     cwd: client
     shell: yarn vite
@@ -7,13 +8,19 @@ procs:
     cwd: client
     shell: yarn vite preview
     autostart: false
+
+  # Back
   server-run:
     cwd: server
     shell: yarn start
     autostart: false
+
+  # DB
   db-start:
     shell: docker compose up
     autostart: false
+    stop:
+      send-keys: ["<C-c>"]
   db-build:
     cwd: server
     shell: yarn migrate-mongo up
@@ -26,3 +33,10 @@ procs:
     cwd: server
     shell: yarn migrate-mongo down
     autostart: false
+
+  # Other
+  deploy:
+    shell: docker compose --profile backend up
+    autostart: false
+    stop:
+      send-keys: ["<C-c>"]

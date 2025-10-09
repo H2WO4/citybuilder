@@ -1,12 +1,25 @@
 services:
-  # server:
-  #   build: server
-  #   ports:
-  #     - 3000:3000
-  #   environment:
-  #     DB_HOST: db
-  #     DB_PORT: 27017
-  #     DB_BASE: main
+  front:
+    build: client
+    ports:
+      - 5173:80
+    profiles:
+      - frontend
+    environment:
+      VITE_API_URL: http://server:3000
+  server:
+    build: server
+    ports:
+      - 3000:3000
+    depends_on:
+      - db
+    profiles:
+      - backend
+    environment:
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 27017
+      DB_BASE: main
   db:
     image: mongo:8-noble
     ports:
