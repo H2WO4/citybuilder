@@ -9,7 +9,7 @@ export const GroceryStore: BuildingType = {
 
   stats: {
     population: {
-      employs: 6,
+      employs: 6
     },
     money: 150,
     electricity: -25,
@@ -26,7 +26,7 @@ export const Bar: BuildingType = {
 
   stats: {
     population: {
-      employs: 8,
+      employs: 8
     },
     money: 600,
     electricity: -40,
@@ -43,7 +43,7 @@ export const Restaurant: BuildingType = {
 
   stats: {
     population: {
-      employs: 15,
+      employs: 15
     },
     money: 250,
     electricity: -30,
@@ -60,8 +60,8 @@ export const CityMarket: BuildingType = {
 
   stats: {
     population: {
-      employs: 10,
-    },
+      employs: 10
+    }
   }
 }
 
@@ -74,7 +74,7 @@ export const Offices: BuildingType = {
 
   stats: {
     population: {
-      employs: 20,
+      employs: 20
     },
     money: 300,
     electricity: -50,
@@ -91,7 +91,7 @@ export const Skyscrapper: BuildingType = {
 
   stats: {
     population: {
-      employs: 140,
+      employs: 140
     },
     money: 2000,
     electricity: -400,
