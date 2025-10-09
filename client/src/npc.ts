@@ -5,6 +5,7 @@ import type { Walker } from "./types";
 import { CELL } from "./constants";
 import { scene } from "./scene";
 import { houses, buildings, roads, keyFromCenter } from "./placement";
+import { rebuildNavmesh, findPath, getSidewalkCenterOffset } from "./pathfinding";
 
 const walkers: Walker[] = [];
 const walkerPool: { obj: THREE.Object3D; mixer: THREE.AnimationMixer }[] = [];
@@ -37,11 +38,13 @@ function chooseFrontRoad(wx: number, wz: number, angleIdx: number) {
 }
 
 export function spawnWalker() {
+  if (roads.size > 0 && walkers.length === 0) rebuildNavmesh();
   if (walkers.length >= MAX_WALKERS) return;
-  const sourceBag = Math.random() < 0.6 ? houses : buildings;
-  const entries = [...sourceBag.entries()];
-  if (!entries.length) return;
-  const [lotKey, lotObj] = entries[(Math.random() * entries.length) | 0];
+  // Start at a house when possible
+  const houseEntries = [...houses.entries()];
+  const buildingEntries = [...buildings.entries()];
+  if (!houseEntries.length || !buildingEntries.length) return;
+  const [lotKey, lotObj] = houseEntries[(Math.random() * houseEntries.length) | 0];
   const [wx, wz] = lotKey.split(":").map(Number);
   const angleIdx = (lotObj as any).userData?.angle ?? 0;
   const front = chooseFrontRoad(wx, wz, angleIdx);
@@ -54,10 +57,13 @@ export function spawnWalker() {
 
   baseObj.scale.copy(choice.baseScale).multiplyScalar(choice.normScale);
 
-  const frontOffset = (CELL / 2) - 0.9;
+  // Align spawn on sidewalk centerline, not on the drive surface
+  const frontOffset = (CELL / 2) - 0.1;
+  const sidewalkSide = getSidewalkCenterOffset();
   const side = Math.random() < 0.5 ? new THREE.Vector3(front.dz, 0, -front.dx) : new THREE.Vector3(-front.dz, 0, front.dx);
-  const px = wx + front.dx * frontOffset;
-  const pz = wz + front.dz * frontOffset;
+  const sideVec = new THREE.Vector3(0, 0, sidewalkSide).applyAxisAngle(new THREE.Vector3(0,1,0), Math.atan2(front.dx, front.dz));
+  const px = wx + front.dx * frontOffset + sideVec.x;
+  const pz = wz + front.dz * frontOffset + sideVec.z;
   const py = choice.footOffset + 0.0005;
   baseObj.position.set(px, py, pz);
   const lookTarget = baseObj.position.clone().add(side);
@@ -77,13 +83,33 @@ export function spawnWalker() {
   const lateralFreq = 1.5 + Math.random() * 1.2;
   const lateralAmp = 0.18 + Math.random() * 0.1;
 
-  walkers.push({
+  const walker: Walker = {
     obj: baseObj, mixer, walkAction: clip ? mixer.clipAction(clip) : null,
     dir: side.normalize(), speed, life, tileX, tileZ, axis,
     lateralPhase: Math.random() * Math.PI * 2, lateralFreq, lateralAmp, prevLat: 0, perp,
     state: 'walk', turnT: 0, turnDur: 0, startQuat: null, endQuat: null, queuedDir: null,
     baseSpeed: speed, idleT: 0, idleDur: 0
-  });
+  } as Walker;
+  // Compute a destination near a random building front
+  const [bk, bObj] = buildingEntries[(Math.random() * buildingEntries.length) | 0];
+  const [bx, bz] = bk.split(":").map(Number);
+  const bAngle = (bObj as any).userData?.angle ?? 0;
+  const frontB = chooseFrontRoad(bx, bz, bAngle);
+  if (frontB) {
+    // Target on the opposite sidewalk centerline in front of the building
+    const sideVecB = new THREE.Vector3(0, 0, sidewalkSide).applyAxisAngle(new THREE.Vector3(0,1,0), Math.atan2(frontB.dx, frontB.dz));
+    const target = new THREE.Vector3(
+      bx + frontB.dx * ((CELL / 2) - 0.1) + sideVecB.x,
+      py,
+      bz + frontB.dz * ((CELL / 2) - 0.1) + sideVecB.z
+    );
+    const path = findPath(baseObj.position.clone(), target);
+    if (path && path.length > 0) {
+      (walker as any).waypoints = path;
+      (walker as any).returnTarget = new THREE.Vector3(px, py, pz);
+    }
+  }
+  walkers.push(walker);
 }
 
 export function updateWalkers(dt: number) {
@@ -136,7 +162,38 @@ export function updateWalkers(dt: number) {
     }
 
     if (w.prevLat !== 0) w.obj.position.addScaledVector(w.perp, -w.prevLat);
-    if (w.state === 'walk') w.obj.position.addScaledVector(w.dir, w.speed * dt);
+    if (w.state === 'walk') {
+      // If we have nav waypoints, follow them
+      const wp: THREE.Vector3[] | undefined = (w as any).waypoints;
+      if (wp && wp.length) {
+        const tgt = wp[0];
+        const to = tgt.clone().sub(w.obj.position);
+        const dist = to.length();
+        if (dist > 0.001) {
+          to.normalize();
+          // align walker direction with path segment to keep lateral sway on sidewalk
+          w.dir.copy(to);
+          w.perp.set(-to.z, 0, to.x);
+          w.obj.position.addScaledVector(to, w.speed * dt);
+          // rotate smoothly towards next segment
+          const tmp = w.obj.position.clone().add(to);
+          const qtmp = new THREE.Object3D(); qtmp.position.copy(w.obj.position); qtmp.lookAt(tmp);
+          if (!w.startQuat && !w.endQuat) { w.obj.quaternion.slerp(qtmp.quaternion, 0.1); }
+        }
+        if (dist < 0.15) { wp.shift(); }
+        if (!wp.length) {
+          // swap to return trip if we had a return target
+          const back = (w as any).returnTarget as THREE.Vector3 | undefined;
+          if (back) {
+            const pathBack = findPath(w.obj.position.clone(), back);
+            if (pathBack && pathBack.length) (w as any).waypoints = pathBack;
+          }
+        }
+      } else {
+        // fallback: simple side walk
+        w.obj.position.addScaledVector(w.dir, w.speed * dt);
+      }
+    }
 
     if (w.state === 'walk') {
       const localProgress = w.axis === 'x' ? (w.obj.position.x - w.tileX) : (w.obj.position.z - w.tileZ);
@@ -178,8 +235,11 @@ export function updateWalkers(dt: number) {
       }
     }
 
-    let amp = w.lateralAmp;
-    if (w.state === 'turn') amp *= 0.4; else if (w.state === 'idle') amp *= 0.2;
+  let amp = w.lateralAmp;
+  // Strongly reduce sway while following path to keep feet on sidewalk band
+  const hasPath = !!(w as any).waypoints && (w as any).waypoints.length > 0;
+  if (hasPath) amp *= 0.1;
+  if (w.state === 'turn') amp *= 0.4; else if (w.state === 'idle') amp *= 0.2;
     w.lateralPhase += dt * w.lateralFreq;
     const newLat = Math.sin(w.lateralPhase) * amp;
     w.obj.position.addScaledVector(w.perp, newLat);
