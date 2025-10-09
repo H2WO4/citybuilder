@@ -11,6 +11,7 @@ export const SAWMILL_COST = 1000
 export const HOUSE_COST = 1200
 export const TURBINE_COST = 1500
 export const BUILDING_COST = 5000
+export const REFUND_RATIO = 0.5
 
 export const Z_GROUND = -0.002
 export const Z_GRID = 0.0002

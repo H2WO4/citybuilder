@@ -301,10 +301,21 @@ addEventListener("pointerdown", (e) => {
         if (obj) {
           bag.delete(id)
           // @ts-ignore
-          import("./placement").then((m) => m.removeObject(obj))
-          found = true
-          showToast("Bâtiment supprimé")
-          break
+          import("./placement").then(m => m.removeObject(obj))
+          // remboursement partiel
+          const cost = (obj as any).userData?.cost ?? 0
+          if (cost > 0) {
+            import("./constants").then(({ REFUND_RATIO }) => {
+              const refund = Math.floor(cost * (REFUND_RATIO ?? 0.5))
+              import("./ui").then(({ addMoney, showRefund }) => {
+                addMoney(refund)
+                showRefund(refund)
+              })
+            })
+          }
+          found = true;
+          showToast("Bâtiment supprimé");
+          break;
         }
       }
       if (!found) {
