@@ -8,7 +8,7 @@ export const Gazebo: BuildingType = {
   cost: 300,
 
   stats: {
-    money: -10,
+    money: -10
   }
 }
 

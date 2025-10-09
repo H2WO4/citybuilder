@@ -9,7 +9,7 @@ export const WindTurbine: BuildingType = {
 
   stats: {
     money: -10,
-    electricity: 50,
+    electricity: 50
   }
 }
 export const SolarFarm: BuildingType = {
@@ -21,7 +21,7 @@ export const SolarFarm: BuildingType = {
 
   stats: {
     money: -30,
-    electricity: 250,
+    electricity: 250
   }
 }
 
@@ -34,6 +34,6 @@ export const WaterWell: BuildingType = {
 
   stats: {
     money: -10,
-    water: 100,
+    water: 100
   }
 }
