@@ -27,6 +27,8 @@ async function post_one(req: Request, res: Response) {
   let position = req.body.position;
   let orientation = req.body.orientation;
   let type = req.body.type;
+  // Log the full request body for debugging
+  console.log("POST /buildings received body:", req.body);
 
   try {
     let result = await Buildings.insertOne({
@@ -34,12 +36,14 @@ async function post_one(req: Request, res: Response) {
       type,
       position,
       orientation,
+      // If piece is present, include it
+      ...(req.body.piece ? { piece: req.body.piece } : {})
     });
-
+    // Log the inserted document
+    console.log("Inserted building:", result);
     res.status(201).json(result);
   } catch (e) {
     console.log(e);
-
     res.status(400).send("invalid arguments");
   }
 }

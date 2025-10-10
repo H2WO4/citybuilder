@@ -33,6 +33,7 @@ import {
   setPiece,
   getPiece,
   incAngle
+  , keyFromCenter
 } from "./placement"
 import { updateWalkers } from "./npc"
 import { showToast } from "./ui"
@@ -76,8 +77,8 @@ async function initCitySelector() {
     for (const c of cities) {
       const opt = document.createElement('option')
       opt.value = (c as any)._id
-      // show name + uuid so user can see the id
-      opt.textContent = `${(c as any).name || (c as any)._id} — ${(c as any)._id}`
+      // Affiche seulement le nom de la ville (ou l'UUID si pas de nom)
+      opt.textContent = (c as any).name || (c as any)._id
       citySelectEl.appendChild(opt)
     }
     if (saved) {
@@ -389,8 +390,9 @@ addEventListener("pointerdown", (e) => {
     }
     const s = snapToCell(p)
     if (currentMode === "bulldozer") {
-      // Cherche un objet à supprimer à cette position
-      const id = `${s.x}:${s.z}`
+  // Cherche un objet à supprimer à cette position using canonical tile keys
+  // computed by keyFromCenter (which uses integer tile indices).
+  const id = keyFromCenter(s.x, s.z)
       let found = false
       const bags = [houses, buildings, wells, turbines, sawmills, roads]
       for (const bag of bags) {
@@ -413,7 +415,25 @@ addEventListener("pointerdown", (e) => {
           // server-backed delete: prefer using city+position; fall back to _id if present
           ;(async () => {
             try {
-              const city = (await import("./state")).getSelectedCity()
+              // Determine the city robustly: runtime state > DOM selector > localStorage
+              let city: string | null = null
+              try {
+                city = (await import("./state")).getSelectedCity()
+              } catch (e) {
+                // ignore
+              }
+              if (!city) {
+                try {
+                  const sel = document.getElementById('city-select') as HTMLSelectElement | null
+                  if (sel && sel.value) city = sel.value
+                } catch (e) {
+                  // ignore
+                }
+              }
+              if (!city) {
+                city = localStorage.getItem('selectedCity') || null
+              }
+
               if (city) {
                 try {
                   // use the shared worldToCellIndex logic to compute tile indices
@@ -425,13 +445,18 @@ addEventListener("pointerdown", (e) => {
                 }
                 // refresh examples from server so the scene matches backend
                 try {
-                  const { clearExampleBuildings, seedExampleBuildings } = await import("./grille")
-                  const { get_all_from_city } = await import("./server/buildings")
-                  clearExampleBuildings()
-                  const all = await get_all_from_city(city)
-                  await seedExampleBuildings(all)
+                  const { refreshCity } = await import("./grille")
+                  await refreshCity(city)
                 } catch (e) {
                   console.warn("failed to refresh buildings after delete", e)
+                }
+              } else {
+                // no city known: still try to refresh UI by clearing examples
+                try {
+                  const { clearExampleBuildings } = await import("./grille")
+                  clearExampleBuildings()
+                } catch (e) {
+                  // ignore
                 }
               }
             } catch (e) {

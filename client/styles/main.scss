@@ -30,16 +30,35 @@ canvas {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   user-select: none;
 }
-.money-hud {
+.hud-top-right {
+  position: fixed;
   top: 12px;
   right: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
   z-index: 10002;
 }
+.hud-top-right > .panel {
+  /* `.panel` is globally `position: fixed`; override here so the panels
+     are laid out inside the container rather than positioned independently */
+  position: relative;
+  top: auto;
+  right: auto;
+  left: auto;
+  transform: none;
+  margin: 0;
+}
+
+.money-hud {
+  padding: 8px 12px;
+}
 .fps-hud {
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10002;
+  padding: 6px 10px;
+  /* Match the panel's font size and weight so FPS and money look identical */
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
 }
 
 /* Toolbar */
@@ -355,32 +374,18 @@ canvas {
     transform 0.4s ease;
 }
 
-/* city selector (bottom-right) */
+/* city selector (top-center) */
 .city-select {
   position: fixed;
-  right: 12px;
-  bottom: 12px;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10003;
   display: flex;
   gap: 8px;
   align-items: center;
-}
-.city-select select {
-  padding: 6px 8px;
-  font-size: 14px;
-  border-radius: 6px;
-  border: 1px solid #333;
-}
-
-/* city selector (bottom-right) */
-.city-select {
-  position: fixed;
-  right: 12px;
-  bottom: 12px;
-  z-index: 10003;
-  display: flex;
-  gap: 8px;
-  align-items: center;
+  /* Give it a small right margin so it doesn't visually collide with top-right HUD */
+  margin-right: 120px;
 }
 .city-select select {
   padding: 6px 8px;
