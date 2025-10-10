@@ -17,12 +17,20 @@ const ENV = process.env
 export const PORT = ENV.PORT
 export const APP = express()
 APP.use(express.json())
-APP.use(cors())
+APP.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5174'], // Autoriser les ports de dev Vite
+  credentials: true // Permettre l'envoi de cookies/sessions
+}))
 APP.use(
   session({
     resave: false,
     saveUninitialized: false,
-    secret: "cat"
+    secret: "cat",
+    cookie: {
+      secure: false, // false pour HTTP local, true pour HTTPS en production
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 heures
+    }
   })
 )
 
