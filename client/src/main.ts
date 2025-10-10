@@ -12,6 +12,7 @@ import {
 } from "./placement";
 import { updateWalkers } from "./npc";
 import { showToast } from "./ui";
+import { initDashboard } from "./dashboard";
 
 // input helpers
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -227,3 +228,6 @@ function tick() {
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
+
+// UI: dashboard
+initDashboard();

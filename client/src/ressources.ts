@@ -10,4 +10,7 @@ export function updateRes() {
   if (w) w.textContent = String(resources.water);
   if (f) f.textContent = String(resources.food);
   if (wd) wd.textContent = String(resources.wood);
+  window.dispatchEvent(new CustomEvent('resources:changed', { detail: { resources, production } }));
 }
+
+export function getResourcesSnapshot(){ return { resources, production }; }

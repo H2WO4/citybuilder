@@ -1,13 +1,23 @@
-export let money = 200000;
+export const initialMoney = 200000;
+export let money = initialMoney;
+// Cumul des dépenses/remboursements pour le tableau de bord
+let totalSpent = 0;
+let totalRefunded = 0;
 const hud = document.getElementById("money-hud") as HTMLElement;
 export const fmtEUR = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 export function renderMoney() { if (hud) hud.textContent = fmtEUR.format(money); }
+function dispatchMoneyChange() {
+  window.dispatchEvent(new CustomEvent('money:changed', {
+    detail: { money, totalSpent, totalRefunded, net: money - initialMoney }
+  }));
+}
 renderMoney();
 
 // Mutateur de solde + rendu HUD
 export function addMoney(delta: number) {
   money += delta;
   renderMoney();
+  dispatchMoneyChange();
 }
 
 const toast = document.getElementById("toast") as HTMLDivElement;
@@ -46,10 +56,14 @@ export function showRefund(amount: number) {
     refundAggregate.element.classList.add('pulse');
     clearTimeout(refundAggregate.timeout);
     refundAggregate.timeout = setTimeout(() => { refundAggregate?.element.classList.remove('show'); refundAggregate = null; }, 1500);
+    totalRefunded += amount;
+    dispatchMoneyChange();
     return;
   }
   const el = createMoneyPopup('+' + fmtEUR.format(amount), 'refund', true);
   refundAggregate = { amount, element: el, lastTime: now, timeout: setTimeout(() => { el.classList.remove('show'); refundAggregate = null; }, 1500) };
+  totalRefunded += amount;
+  dispatchMoneyChange();
 }
 
 export function showSpend(amount: number) {
@@ -61,8 +75,16 @@ export function showSpend(amount: number) {
     spendAggregate.element.classList.add('pulse');
     clearTimeout(spendAggregate.timeout);
     spendAggregate.timeout = setTimeout(() => { spendAggregate?.element.classList.remove('show'); spendAggregate = null; }, 1500);
+    totalSpent += amount;
+    dispatchMoneyChange();
     return;
   }
   const el = createMoneyPopup('-' + fmtEUR.format(amount), 'spend', true);
   spendAggregate = { amount, element: el, lastTime: now, timeout: setTimeout(() => { el.classList.remove('show'); spendAggregate = null; }, 1500) };
+  totalSpent += amount;
+  dispatchMoneyChange();
+}
+
+export function getMoneyStats() {
+  return { money, totalSpent, totalRefunded, net: money - initialMoney };
 }
