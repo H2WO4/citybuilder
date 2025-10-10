@@ -9,7 +9,7 @@ export const House: BuildingType = {
 
   stats: {
     population: {
-      houses: 4,
+      houses: 4
     },
     money: -50,
     electricity: -10,
@@ -26,7 +26,7 @@ export const Apartments: BuildingType = {
 
   stats: {
     population: {
-      houses: 10,
+      houses: 10
     },
     money: -150,
     electricity: -30,
@@ -43,7 +43,7 @@ export const Skyscrapper: BuildingType = {
 
   stats: {
     population: {
-      houses: 80,
+      houses: 80
     },
     money: -1500,
     electricity: -300,

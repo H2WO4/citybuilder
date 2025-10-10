@@ -1,7 +1,15 @@
 import * as THREE from "three"
-import type { UUIDTypes as UUID } from "uuid";
+import type { UUIDTypes as UUID } from "uuid"
 
-export type CursorMode = "pan" | "road" | "house" | "building" | "bulldozer" | "well" | "turbine" | "sawmill"
+export type CursorMode =
+  | "pan"
+  | "road"
+  | "house"
+  | "building"
+  | "bulldozer"
+  | "well"
+  | "turbine"
+  | "sawmill"
 export type BuildingKind = "road" | "house" | "building" | "well" | "turbine" | "sawmill"
 export type ModelKey = "I" | "L" | "X" | "HOUSE" | "BUILDING" | "WELL" | "TURBINE" | "SAWMILL"
 
@@ -32,13 +40,13 @@ export interface Walker {
   life: number
   tileX: number
   tileZ: number
-  axis: 'x' | 'z'
+  axis: "x" | "z"
   lateralPhase: number
   lateralFreq: number
   lateralAmp: number
   prevLat: number
   perp: THREE.Vector3
-  state: 'walk' | 'turn' | 'idle'
+  state: "walk" | "turn" | "idle"
   turnT: number
   turnDur: number
   startQuat: THREE.Quaternion | null
@@ -50,20 +58,20 @@ export interface Walker {
 }
 
 export interface City {
-  _id: UUID,
-  name: string,
+  _id: UUID
+  name: string
 }
 
 export interface Building {
-  _id: UUID,
-  city: UUID,
+  _id: UUID
+  city: UUID
 
-  type: string,
+  type: string
 
   position: {
-    x: number,
-    y: number,
-  },
+    x: number
+    y: number
+  }
   orientation: "n" | "s" | "e" | "w"
 }
 
@@ -73,25 +81,24 @@ export enum BuildingClass {
   Industrial,
   Entertainment,
   Services,
-  Roads,
+  Roads
 }
 
 export interface BuildingType {
-  id: string,
-  name: string,
+  id: string
+  name: string
 
-  class: BuildingClass,
-  cost: number,
+  class: BuildingClass
+  cost: number
 
   stats: {
     population?: {
-      houses?: number,
-      employs?: number,
+      houses?: number
+      employs?: number
     }
-    money?: number,
-    electricity?: number,
-    water?: number,
-    food?: number,
+    money?: number
+    electricity?: number
+    water?: number
+    food?: number
   }
 }
-
