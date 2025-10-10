@@ -19,8 +19,9 @@ function ensureUI(){
   render();
 }
 
-function render(){
+function render(forceOpen = false){
   if (!root) return;
+  if (forceOpen) isOpen = true;
   root.classList.toggle('open', isOpen);
   if (!isOpen) return;
   const { money, totalSpent, totalRefunded, net } = getMoneyStats();
@@ -46,8 +47,9 @@ function render(){
   if (close) close.addEventListener('click', () => { isOpen = false; render(); });
 }
 
-export function initDashboard(){
+export function initDashboard(forceOpen = false){
   ensureUI();
+  render(forceOpen);
   // React to money/resources changes
   window.addEventListener('money:changed', () => render());
   window.addEventListener('spend:changed', () => render());

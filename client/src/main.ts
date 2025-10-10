@@ -1,3 +1,150 @@
+import { login, signin, logout } from "./server/accounts"
+// Gestion de la pop-up d'authentification
+function showAuthModal(show = true) {
+  const overlay = document.getElementById("auth-modal-overlay") as HTMLDivElement
+  if (overlay) overlay.classList.toggle("hidden", !show)
+  if (show) {
+    (document.getElementById("auth-username") as HTMLInputElement)?.focus()
+  }
+}
+
+function setAuthError(msg: string) {
+  const err = document.getElementById("auth-error") as HTMLDivElement
+  if (err) err.textContent = msg
+}
+
+function isAuthenticated() {
+  // Simple: on vérifie un flag localStorage (à remplacer par un vrai check session si besoin)
+  return localStorage.getItem("isAuthenticated") === "1"
+}
+
+function setAuthenticated(val: boolean) {
+  localStorage.setItem("isAuthenticated", val ? "1" : "0")
+}
+
+function blockBackgroundInteractions(block = true) {
+  // On bloque tout sauf la modale
+  if (block) {
+    document.body.style.overflow = "hidden"
+  } else {
+    document.body.style.overflow = ""
+  }
+}
+
+function setupAuthModal() {
+  const overlay = document.getElementById("auth-modal-overlay") as HTMLDivElement
+  const form = document.getElementById("auth-form") as HTMLFormElement
+  const loginBtn = document.getElementById("login-btn") as HTMLButtonElement
+  const signupBtn = document.getElementById("signup-btn") as HTMLButtonElement
+  if (!overlay || !form || !loginBtn || !signupBtn) return
+
+  // Empêche la fermeture de la modale
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      // Optionnel: on ne ferme pas la modale si on clique dehors
+      e.preventDefault()
+    }
+  })
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault()
+    setAuthError("")
+    const username = (document.getElementById("auth-username") as HTMLInputElement).value.trim()
+    const password = (document.getElementById("auth-password") as HTMLInputElement).value
+    if (!username || !password) {
+      setAuthError("Veuillez remplir tous les champs.")
+      return
+    }
+    loginBtn.disabled = true
+    signupBtn.disabled = true
+    try {
+      await login({ name: username, pass: password })
+      setAuthenticated(true)
+      showAuthModal(false)
+      blockBackgroundInteractions(false)
+      updateLogoutBtn()
+      showToast("Connexion réussie !")
+    } catch (err: any) {
+      console.error("Erreur de connexion:", err)
+      setAuthError(err.message || "Identifiants incorrects.")
+    } finally {
+      loginBtn.disabled = false
+      signupBtn.disabled = false
+    }
+  })
+
+  signupBtn.addEventListener("click", async (e) => {
+    e.preventDefault()
+    setAuthError("")
+    const username = (document.getElementById("auth-username") as HTMLInputElement).value.trim()
+    const password = (document.getElementById("auth-password") as HTMLInputElement).value
+    if (!username || !password) {
+      setAuthError("Veuillez remplir tous les champs.")
+      return
+    }
+    loginBtn.disabled = true
+    signupBtn.disabled = true
+    try {
+      await signin({ name: username, pass: password })
+      setAuthenticated(true)
+      showAuthModal(false)
+      blockBackgroundInteractions(false)
+      updateLogoutBtn()
+      showToast("Compte créé avec succès !")
+    } catch (err: any) {
+      console.error("Erreur de création de compte:", err)
+      setAuthError(err.message || "Erreur lors de la création du compte.")
+    } finally {
+      loginBtn.disabled = false
+      signupBtn.disabled = false
+    }
+  })
+}
+
+// Affiche ou masque le bouton déconnexion selon l'état de connexion
+function updateLogoutBtn() {
+  const fabItem = document.getElementById("logout-fab-item") as HTMLLIElement
+  if (!fabItem) return
+  if (isAuthenticated()) {
+    fabItem.classList.remove("hidden")
+  } else {
+    fabItem.classList.add("hidden")
+  }
+}
+
+// Gestion de la déconnexion
+async function handleLogout() {
+  try {
+    await logout()
+  } catch (err: any) {
+    // Si l'erreur est "please login first", c'est que l'utilisateur n'était déjà plus connecté côté serveur
+    // On continue quand même la déconnexion côté client
+    if (!err.message.includes("please login first")) {
+      console.error("Erreur de déconnexion:", err)
+      showToast("Erreur lors de la déconnexion.")
+      return
+    }
+  }
+  
+  // Déconnexion côté client dans tous les cas
+  setAuthenticated(false)
+  showAuthModal(true)
+  blockBackgroundInteractions(true)
+  updateLogoutBtn()
+  showToast("Déconnexion réussie.")
+}
+
+// Affiche la modale si non connecté
+document.addEventListener("DOMContentLoaded", () => {
+  setupAuthModal()
+  updateLogoutBtn()
+  if (!isAuthenticated()) {
+    showAuthModal(true)
+    blockBackgroundInteractions(true)
+  }
+  // Initialiser le dashboard financier (touche D)
+  import("./dashboard").then(m => m.initDashboard())
+})
 import * as THREE from "three"
 import {
   stats,
@@ -237,6 +384,11 @@ function cyclePiece() {
   showToast(`Route: ${next}`)
 }
 addEventListener("keydown", (e) => {
+  // Bloquer les raccourcis si l'utilisateur n'est pas connecté ou si un champ de saisie est actif
+  if (!isAuthenticated() || (e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') {
+    return
+  }
+
   if ((e.key === "r" || e.key === "R") && currentMode === "road") {
     e.preventDefault()
     cyclePiece()

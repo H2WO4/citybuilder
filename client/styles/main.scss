@@ -1,3 +1,70 @@
+
+// ===== Modal Auth =====
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.45);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.hidden {
+  display: none !important;
+}
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  padding: 32px 28px 24px 28px;
+  min-width: 320px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.modal h2 {
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 1.3rem;
+  text-align: center;
+}
+.modal input[type="text"], .modal input[type="password"] {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  font-size: 15px;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.modal-actions button {
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.modal-actions button:hover {
+  background: #1e4fb9;
+}
+.auth-error {
+  color: #b51212;
+  font-size: 14px;
+  min-height: 18px;
+  text-align: center;
+  margin-top: 2px;
+}
 html,
 body {
   height: 100%;
@@ -322,6 +389,17 @@ canvas {
   border-radius: 6px;
   /* Keep weight stable to avoid text jump */
   font-weight: inherit;
+}
+
+/* Style pour l'élément de déconnexion */
+#logout-fab-item {
+  color: #b51212 !important;
+  border-top: 1px solid #ddd;
+  margin-top: 8px;
+  padding-top: 15px !important;
+}
+#logout-fab-item:hover {
+  background: #ffe6e6 !important;
 }
 
 /* Slight color emphasis to replace bold hover */
