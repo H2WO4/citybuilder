@@ -6,8 +6,19 @@ import { Z_GROUND, MIN_ZOOM, MAX_ZOOM } from "./constants"
 export const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x55aa55)
 scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1))
-const sun = new THREE.DirectionalLight(0xffffff, 2)
+
+export const sun = new THREE.DirectionalLight(0xffffff, 2)
 sun.position.set(50, 100, 50)
+sun.castShadow = true
+sun.shadow.mapSize.width = 2048
+sun.shadow.mapSize.height = 2048
+sun.shadow.camera.near = 10
+sun.shadow.camera.far = 500
+sun.shadow.camera.left = -100
+sun.shadow.camera.right = 100
+sun.shadow.camera.top = 100
+sun.shadow.camera.bottom = -100
+sun.shadow.bias = -0.001
 scene.add(sun)
 scene.add(sun.target)
 
@@ -28,11 +39,14 @@ export function setOrtho(cam = camera) {
 }
 setOrtho()
 
+
 export const renderer = new THREE.WebGLRenderer({ antialias: true })
 renderer.setPixelRatio(devicePixelRatio)
 renderer.setSize(innerWidth, innerHeight)
 renderer.setClearColor(0x55aa55)
 renderer.outputColorSpace = THREE.SRGBColorSpace
+renderer.shadowMap.enabled = true
+renderer.shadowMap.type = THREE.PCFSoftShadowMap
 document.body.appendChild(renderer.domElement)
 
 export const stats = new Stats()
@@ -83,10 +97,12 @@ export function stepCameraRotation(now: number) {
 }
 
 
+
 export const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(4096, 4096),
-  new THREE.MeshBasicMaterial({ color: 0x55aa55 })
+  new THREE.MeshPhongMaterial({ color: 0x55aa55 })
 )
+ground.receiveShadow = true
 ground.rotation.x = -Math.PI / 2
 ground.position.y = Z_GROUND
 scene.add(ground)

@@ -19,3 +19,5 @@ export function updateRes() {
     wd.textContent = String(resources.wood)
   }
 }
+
+export function getResourcesSnapshot(){ return { resources, production }; }

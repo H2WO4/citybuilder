@@ -2,10 +2,11 @@ export async function up(db) {
   await db.createCollection("cities", {
     validator: {
       $jsonSchema: {
-        required: ["_id", "name"],
+        required: ["_id", "owner", "name"],
 
         properties: {
           _id: { bsonType: "objectId" },
+          owner: { bsonType: "objectId" },
 
           name: { bsonType: "string" }
         },
@@ -21,6 +22,9 @@ export async function up(db) {
   })
   await db.collection("cities").createIndex({
     name: 1,
+  }, { unique: true })
+  await db.collection("cities").createIndex({
+    owner: 1,
   }, { unique: true })
 
   await db.createCollection("buildings", {
@@ -83,7 +87,7 @@ export async function up(db) {
 }
 
 export async function down(db) {
-  await db.collection("cities").drop();
-  await db.collection("buildings").drop();
-  await db.collection("contracts").drop();
+  await db.collection("cities").drop()
+  await db.collection("buildings").drop()
+  await db.collection("contracts").drop()
 }

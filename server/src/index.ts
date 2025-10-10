@@ -1,26 +1,56 @@
-import 'dotenv/config'
-import express from 'express'
-import cors from 'cors'
-import mongoose from 'mongoose'
+import "dotenv/config"
+import express from "express"
+import cors from "cors"
+import session from "express-session"
+import mongoose, { Types } from "mongoose"
 
-// Setup
+import { Request, Response } from "express"
+
+declare module "express-session" {
+  interface SessionData {
+    user?: Types.ObjectId
+  }
+}
+
 const ENV = process.env
 
-export const PORT = ENV.PORT;
-export const APP = express();
+export const PORT = ENV.PORT
+export const APP = express()
 APP.use(express.json())
-APP.use(cors())
+APP.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5174'], // Autoriser les ports de dev Vite
+  credentials: true // Permettre l'envoi de cookies/sessions
+}))
+APP.use(
+  session({
+    resave: false,
+    saveUninitialized: false,
+    secret: "cat",
+    cookie: {
+      secure: false, // false pour HTTP local, true pour HTTPS en production
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 heures
+    }
+  })
+)
+
+export function auth(req: Request, res: Response, next: any) {
+  if (req.session.user !== undefined) {
+    next()
+  } else {
+    res.status(401).send("please login first")
+  }
+}
 
 const DB_URL = `mongodb://${ENV.DB_HOST}:${ENV.DB_PORT}/${ENV.DB_BASE}`
-mongoose.connect(DB_URL)
-  .then(() => console.log('Connected!'));
+mongoose.connect(DB_URL).then(() => console.log("Connected!"))
 
 // Use routes
+require("./routes/accounts").init()
 require("./routes/buildings").init()
 require("./routes/cities").init()
 
 // Start server
 APP.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
-
+  console.log(`Server running at http://localhost:${PORT}`)
+})

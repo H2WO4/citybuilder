@@ -15,13 +15,32 @@
     <span>+</span>
     <ul id="fab-tools">
       <li data-tool="pan">🖐️ Navigation</li>
-      <li data-tool="road">🛣️ Route</li>
-      <li data-tool="house">🏠 Maison</li>
-      <li data-tool="building">🏢 Immeuble</li>
-      <li data-tool="well">🕳️ Puits</li>
-      <li data-tool="turbine">🌀 Éolienne</li>
-      <li data-tool="sawmill">🪓 Scierie</li>
-      <li data-tool="bulldozer">🗑️ Bulldozer</li>
+      <li class="has-sub">
+        <span>🛣️ Route</span>
+        <ul>
+          <li data-piece="I">— Droite (I)</li>
+          <li data-piece="L">⤴️ Virage (L)</li>
+          <li data-piece="X">✖️ Intersection (X)</li>
+        </ul>
+      </li>
+      <li class="has-sub">
+        <span>🏡 Habitations</span>
+        <ul>
+          <li data-tool="house">🏠 Maison</li>
+          <li data-tool="building">🏢 Immeuble</li>
+        </ul>
+      </li>
+      <li class="has-sub">
+        <span>⚙️ Générateurs de ressources</span>
+        <ul>
+          <li data-tool="well">🕳️ Puits</li>
+          <li data-tool="turbine">🌀 Éolienne</li>
+          <li data-tool="sawmill">🪓 Scierie</li>
+        </ul>
+      </li>
+  <li id="dashboard-fab-item">📊 Dashboard</li>
+  <li data-tool="bulldozer">🗑️ Bulldozer</li>
+      <li id="logout-fab-item" class="hidden">🚪 Déconnexion</li>
     </ul>
   </div>
 
@@ -38,6 +57,22 @@
 
   <div class="ui toast" id="toast"></div>
   <div class="ui money-popups" id="money-popups"></div>
+
+  <!-- Modal de connexion/inscription -->
+  <div class="modal-overlay hidden" id="auth-modal-overlay">
+    <div class="modal" id="auth-modal">
+      <h2>Connexion / Création de compte</h2>
+      <form id="auth-form">
+        <input type="text" id="auth-username" placeholder="Nom d'utilisateur" required autocomplete="username">
+        <input type="password" id="auth-password" placeholder="Mot de passe" required autocomplete="current-password">
+        <div class="modal-actions">
+          <button type="submit" id="login-btn">Connexion</button>
+          <button type="button" id="signup-btn">Créer un compte</button>
+        </div>
+        <div class="auth-error" id="auth-error"></div>
+      </form>
+    </div>
+  </div>
 
 
   <!-- City selector (bottom-right) -->

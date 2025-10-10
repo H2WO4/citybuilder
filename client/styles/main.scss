@@ -1,3 +1,70 @@
+
+// ===== Modal Auth =====
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.45);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.hidden {
+  display: none !important;
+}
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  padding: 32px 28px 24px 28px;
+  min-width: 320px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.modal h2 {
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-size: 1.3rem;
+  text-align: center;
+}
+.modal input[type="text"], .modal input[type="password"] {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  font-size: 15px;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.modal-actions button {
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.modal-actions button:hover {
+  background: #1e4fb9;
+}
+.auth-error {
+  color: #b51212;
+  font-size: 14px;
+  min-height: 18px;
+  text-align: center;
+  margin-top: 2px;
+}
 html,
 body {
   height: 100%;
@@ -41,6 +108,24 @@ canvas {
   transform: translateX(-50%);
   z-index: 10002;
 }
+
+/* Dashboard */
+.dashboard{
+  position:fixed; top:70px; right:12px; width:320px; max-height:70vh; overflow:auto; z-index:4000;
+  display:none;
+}
+.dashboard.open{ display:block; }
+.dashboard .dash-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.dashboard .dash-title{ font-weight:700; font-size:16px; }
+.dashboard .dash-close{ background:#fff; border:1px solid #222; border-radius:6px; cursor:pointer; padding:2px 6px; }
+.dashboard .dash-section{ margin-top:10px; }
+.dashboard .dash-sub{ font-weight:600; font-size:14px; margin-bottom:6px; opacity:.85; }
+.dashboard .dash-row{ display:flex; align-items:center; justify-content:space-between; padding:4px 0; border-top:1px dashed #ddd; }
+.dashboard .dash-row:first-of-type{ border-top:none; }
+.dashboard .dash-row .pos{ color:#0f7d1f; }
+.dashboard .dash-row .neg{ color:#b51212; }
+.dashboard .dash-chart{ display:flex; justify-content:center; padding:4px 0; }
+.dashboard .dash-empty{ font-size:12px; opacity:.7; padding:6px 0; }
 
 /* Toolbar */
 .toolbar {
@@ -139,7 +224,7 @@ canvas {
     0 0 0 3px rgba(255, 255, 255, 0.35),
     0 4px 12px rgba(0, 0, 0, 0.35);
 }
-.action span {
+.action > span {
   pointer-events: none;
   position: relative;
   width: 100%;
@@ -149,7 +234,7 @@ canvas {
   align-items: center;
   transition: 0.3s ease-in-out;
 }
-.action.active span {
+.action.active > span {
   transform: rotate(135deg);
 }
 
@@ -192,7 +277,8 @@ canvas {
 }
 .action ul li:hover {
   background: #f2f2f2;
-  font-weight: 600;
+  /* Avoid bold on hover to prevent layout shift */
+  font-weight: inherit;
 }
 .action ul li:not(:last-child) {
   border-bottom: 1px solid rgba(0, 0, 0, 0);
@@ -205,6 +291,46 @@ canvas {
 .action ul li:hover img {
   opacity: 0.8;
   transform: scale(1);
+}
+
+/* Submenu: open to the right of the main list */
+.action ul li.has-sub {
+  position: relative;
+  cursor: default;
+}
+.action ul li.has-sub > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.action ul li.has-sub > ul {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  position: absolute;
+  top: 0;
+  left: calc(100% + 10px);
+  min-width: 220px;
+  z-index: 10003;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.action ul li.has-sub.open > ul {
+  display: flex;
+}
+.action ul li.has-sub > ul > li {
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.action ul li.has-sub > ul > li:hover {
+  background: #f2f2f2;
+  font-weight: inherit;
 }
 
 /* Dynamic flip helpers */
@@ -242,7 +368,25 @@ canvas {
 #fab-tools li.active {
   background: #dde8ff;
   border-radius: 6px;
-  font-weight: 600;
+  /* Keep weight stable to avoid text jump */
+  font-weight: inherit;
+}
+
+/* Style pour l'élément de déconnexion */
+#logout-fab-item {
+  color: #b51212 !important;
+  border-top: 1px solid #ddd;
+  margin-top: 8px;
+  padding-top: 15px !important;
+}
+#logout-fab-item:hover {
+  background: #ffe6e6 !important;
+}
+
+/* Slight color emphasis to replace bold hover */
+.action ul li:hover,
+.action ul li.has-sub > ul > li:hover {
+  color: #000;
 }
 
 /* Utility */
