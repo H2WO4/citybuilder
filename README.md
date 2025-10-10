@@ -82,4 +82,3 @@
 		  définition des routes que déssert le serveur
  	- `migrations/`
 	   définition des tables de la DB, pour pouvoir l'instancer
-

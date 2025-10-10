@@ -7,7 +7,8 @@ type Method = "GET" | "POST" | "PATCH" | "DELETE"
 export function query(method: Method, path: string, body?: object): Promise<Response> {
   return fetch(`${API_URL}${path}`, {
     method,
-    body: JSON.stringify(body),
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: 'include', // Important pour les sessions/cookies
     headers: {
       "Content-Type": "application/json"
     }

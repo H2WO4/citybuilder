@@ -38,7 +38,9 @@
           <li data-tool="sawmill">🪓 Scierie</li>
         </ul>
       </li>
-      <li data-tool="bulldozer">🗑️ Bulldozer</li>
+  <li id="dashboard-fab-item">📊 Dashboard</li>
+  <li data-tool="bulldozer">🗑️ Bulldozer</li>
+      <li id="logout-fab-item" class="hidden">🚪 Déconnexion</li>
     </ul>
   </div>
 
@@ -55,6 +57,22 @@
 
   <div class="ui toast" id="toast"></div>
   <div class="ui money-popups" id="money-popups"></div>
+
+  <!-- Modal de connexion/inscription -->
+  <div class="modal-overlay hidden" id="auth-modal-overlay">
+    <div class="modal" id="auth-modal">
+      <h2>Connexion / Création de compte</h2>
+      <form id="auth-form">
+        <input type="text" id="auth-username" placeholder="Nom d'utilisateur" required autocomplete="username">
+        <input type="password" id="auth-password" placeholder="Mot de passe" required autocomplete="current-password">
+        <div class="modal-actions">
+          <button type="submit" id="login-btn">Connexion</button>
+          <button type="button" id="signup-btn">Créer un compte</button>
+        </div>
+        <div class="auth-error" id="auth-error"></div>
+      </form>
+    </div>
+  </div>
 
 
   <!-- City selector (bottom-right) -->
