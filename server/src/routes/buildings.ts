@@ -34,9 +34,9 @@ async function post_one(req: Request, res: Response) {
 
     res.status(201).json(result)
   } catch (e) {
-    console.log(e);
+    console.log(e)
 
-    res.status(400).send("invalid arguments");
+    res.status(400).send("invalid arguments")
   }
 }
 
