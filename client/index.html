@@ -16,11 +16,21 @@
     <ul id="fab-tools">
       <li data-tool="pan">🖐️ Navigation</li>
       <li data-tool="road">🛣️ Route</li>
-      <li data-tool="house">🏠 Maison</li>
-      <li data-tool="building">🏢 Immeuble</li>
-      <li data-tool="well">🕳️ Puits</li>
-      <li data-tool="turbine">🌀 Éolienne</li>
-      <li data-tool="sawmill">🪓 Scierie</li>
+      <li class="has-sub">
+        <span>🏡 Habitations</span>
+        <ul>
+          <li data-tool="house">🏠 Maison</li>
+          <li data-tool="building">🏢 Immeuble</li>
+        </ul>
+      </li>
+      <li class="has-sub">
+        <span>⚙️ Générateurs de ressources</span>
+        <ul>
+          <li data-tool="well">🕳️ Puits</li>
+          <li data-tool="turbine">🌀 Éolienne</li>
+          <li data-tool="sawmill">🪓 Scierie</li>
+        </ul>
+      </li>
       <li data-tool="bulldozer">🗑️ Bulldozer</li>
     </ul>
   </div>
