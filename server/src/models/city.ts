@@ -1,7 +1,11 @@
-import { model, Schema } from "mongoose";
+import { model, Schema, Types } from "mongoose"
 
-const City = new Schema({
-  name: String,
-}, { versionKey: false })
+const City = new Schema(
+  {
+    owner: Types.ObjectId,
+    name: String
+  },
+  { versionKey: false }
+)
 
 export const Cities = model("City", City)

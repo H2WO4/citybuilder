@@ -1,75 +1,61 @@
-import { Request, Response } from 'express'
+import { Request, Response } from "express"
 
-import { APP } from '..';
-import { Cities } from '../models/city';
+import { APP, auth } from ".."
+import { Cities } from "../models/city"
 
 export function init() {
   APP.get("/cities", get_all)
-  APP.post("/cities", post_one)
-  APP.patch("/cities/:id", patch_one)
-  APP.delete("/cities/:id", delete_by_id)
+  APP.post("/cities", auth, post_own)
+  APP.patch("/cities", auth, patch_own)
+  APP.delete("/cities", auth, delete_own)
 }
 
 async function get_all(_: Request, res: Response) {
   let all_cities = await Cities.find()
 
-  res
-    .status(200)
-    .json(all_cities)
+  res.status(200).json(all_cities)
 }
 
-async function post_one(req: Request, res: Response) {
-  let name = req.body.name
+async function post_own(req: Request, res: Response) {
+  const name = req.body.name
+  const owner = req.session.user
 
   try {
-    let result = await Cities.insertOne({ name })
+    const result = await Cities.insertOne({ name, owner })
 
-    res
-      .status(201)
-      .json(result)
-  } catch (e) {
+    res.status(201).json(result)
+  } catch (e: any) {
     console.log(e)
 
-    res
-      .status(400)
-      .send("invalid arguments")
+    res.status(400).send("invalid arguments")
   }
 }
 
-
-async function patch_one(req: Request, res: Response) {
-  let id = req.params.id
-  let name = req.body.name
+async function patch_own(req: Request, res: Response) {
+  const name = req.body.name
+  const user = req.session.user!
 
   try {
-    let result = await Cities.findOneAndUpdate({ _id: id }, { name })
+    const result = await Cities.findOneAndUpdate({ owner: user }, { name })
 
-    res
-      .status(201)
-      .json(result)
+    res.status(200).json(result)
   } catch (e) {
     console.log(e)
 
-    res
-      .status(400)
-      .send("invalid arguments")
+    res.status(400).send("invalid arguments")
   }
 }
 
-async function delete_by_id(req: Request, res: Response) {
-  let id = req.params.id
+async function delete_own(req: Request, res: Response) {
+  const user = req.session.user!
 
   try {
-    await Cities.findByIdAndDelete(id)
+    await Cities.findOneAndDelete({ owner: user })
 
-    res
-      .status(204)
-      .send()
+    res.status(204).send()
   } catch (e) {
     console.log(e)
 
-    res
-      .status(404)
-      .send("not found")
+    res.status(404).send("not found")
   }
 }
