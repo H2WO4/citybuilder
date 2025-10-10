@@ -35,6 +35,8 @@ canvas { display: block; }
 .dashboard .dash-row:first-of-type{ border-top:none; }
 .dashboard .dash-row .pos{ color:#0f7d1f; }
 .dashboard .dash-row .neg{ color:#b51212; }
+.dashboard .dash-chart{ display:flex; justify-content:center; padding:4px 0; }
+.dashboard .dash-empty{ font-size:12px; opacity:.7; padding:6px 0; }
 
 /* Toolbar */
 .toolbar{
@@ -72,29 +74,40 @@ canvas { display: block; }
 .action:hover{ background:#1e4fb9; }
 .action:active{ background:#173d90; }
 .action:focus, .action:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(255,255,255,.35),0 4px 12px rgba(0,0,0,.35); }
-.action span{ pointer-events:none; position:relative; width:100%; height:100%; display:flex; justify-content:center; align-items:center; transition:.3s ease-in-out; }
-.action.active span{ transform: rotate(135deg); }
+.action > span{ pointer-events:none; position:relative; width:100%; height:100%; display:flex; justify-content:center; align-items:center; transition:.3s ease-in-out; }
+.action.active > span{ transform: rotate(135deg); }
 
-.action ul{
+.action > ul{
   list-style:none; margin:0; color:#000000da; padding:14px 16px; position:fixed; top: -250px; left:70px;
   background:#fdfdfd; min-width:220px; border:2px solid #222; border-radius:16px;
   box-shadow:0 4px 12px rgba(0,0,0,.25); opacity:0; visibility:hidden;
   transform:translateX(-10px) scale(.95);
   transition:opacity .25s ease, transform .25s ease; display:flex; flex-direction:column;
 }
-.action.active ul{ opacity:1; visibility:visible; transform:translateX(0) scale(1); }
-.action ul li{
+.action.active > ul{ opacity:1; visibility:visible; transform:translateX(0) scale(1); }
+.action > ul li{
   white-space:nowrap; font-size:14px; padding:7px 0; display:flex; align-items:center; gap:6px; cursor:pointer; border-radius:6px;
 }
-.action ul li:hover{ background:#f2f2f2; font-weight:600; }
-.action ul li:not(:last-child){ border-bottom:1px solid rgba(0,0,0,0); }
-.action ul li img{ margin-right:15px; opacity:.2; transform:scale(.7); }
-.action ul li:hover img{ opacity:.8; transform:scale(1.0); }
+.action > ul li:hover{ background:#f2f2f2; }
+.action > ul li:not(:last-child){ border-bottom:1px solid rgba(0,0,0,0); }
+.action > ul li img{ margin-right:15px; opacity:.2; transform:scale(.7); }
+.action > ul li:hover img{ opacity:.8; transform:scale(1.0); }
+
+/* Submenu inside FAB */
+.action ul li.has-sub{ position:relative; cursor:default; }
+.action ul li.has-sub > span{ display:flex; align-items:center; gap:6px; width:100%; }
+.action ul li.has-sub > ul{
+  list-style:none; margin:8px 0 0 0; padding:8px 10px; border:1px solid #ddd; border-radius:8px; background:#fff;
+  display:none; flex-direction:column; gap:2px; position:absolute; top:0; left:calc(100% + 10px); min-width:200px; z-index:10003;
+}
+.action ul li.has-sub.open > ul{ display:flex; }
+.action ul li.has-sub > ul > li{ padding:6px 8px; border-radius:6px; }
+.action ul li.has-sub > ul > li:hover{ background:#f2f2f2; }
 
 /* Dynamic flip helpers */
-.action.flip-x ul{ left:auto; right:70px; transform-origin:right center; }
-.action.flip-y ul{ top:auto; bottom:0; }
-.action.flip-x.flip-y ul{ left:auto; right:70px; }
+.action.flip-x > ul{ left:auto; right:70px; transform-origin:right center; }
+.action.flip-y > ul{ top:auto; bottom:0; }
+.action.flip-x.flip-y > ul{ left:auto; right:70px; }
 
 /* HUD ressources */
 .res-hud{
@@ -105,6 +118,8 @@ canvas { display: block; }
 
 /* bouton actif dans le menu outils */
 #fab-tools li.active{ background:#dde8ff; border-radius:6px; font-weight:600; }
+/* Highlight group rows when opened */
+#fab-tools li.has-sub.open{ background:#dde8ff; border-radius:6px; font-weight:600; }
 
 /* Utility */
 .noselect{ user-select:none; }

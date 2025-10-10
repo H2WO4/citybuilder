@@ -36,10 +36,11 @@ let currentMode: CursorMode = "pan";
 function updateFabActive() {
   const fabList = document.getElementById("fab-tools");
   if (!fabList) return;
-  [...fabList.children].forEach(el => {
-    const li = el as HTMLElement;
-    if (li.dataset.tool === currentMode) li.classList.add("active"); else li.classList.remove("active");
-  });
+  // clear all
+  fabList.querySelectorAll('li[data-tool]').forEach(el => el.classList.remove('active'));
+  // set active on the matching tool (works for nested too)
+  const activeEl = fabList.querySelector(`li[data-tool="${currentMode}"]`);
+  if (activeEl) activeEl.classList.add('active');
 }
 function setActive(m: CursorMode) {
   const prev = currentMode;
@@ -71,24 +72,39 @@ if (fab && fabList) {
     if (!fab.contains(e.target as Node)) fab.classList.remove("active");
   });
   fabList.addEventListener("click", (event) => {
-    const li = (event.target as HTMLElement).closest<HTMLLIElement>("li[data-tool]");
-    if (!li) return;
-    const tool = li.dataset.tool as CursorMode;
+    const target = event.target as HTMLElement;
+    const subGroup = target.closest<HTMLLIElement>('li.has-sub');
+    const item = target.closest<HTMLLIElement>('li[data-tool]');
+    if (subGroup && !item) {
+      // toggle open state for submenu groups when clicking in the group
+      event.stopPropagation();
+      // Clear previous selected highlight so the old blue background disappears
+      fabList.querySelectorAll('li[data-tool].active').forEach(el => el.classList.remove('active'));
+      // close others
+      [...fabList.querySelectorAll('li.has-sub.open')].forEach(li => { if (li !== subGroup) li.classList.remove('open'); });
+      subGroup.classList.toggle('open');
+      return;
+    }
+    if (!item) return;
+    const tool = item.dataset.tool as CursorMode;
     const wasBulldozer = currentMode === 'bulldozer';
+  // Clear any previous active highlighting before switching tool
+  fabList.querySelectorAll('li[data-tool].active').forEach(el => el.classList.remove('active'));
     setActive(tool);
-    // Messages toast cohérents
-const labels: Record<CursorMode, string> = {
-  pan: "Déplacement",
-  road: "Route",
-  house: "Maison",
-  building: "Immeuble",
-  well: "Puits",
-  turbine: "Éolienne",
-  sawmill: "Scierie",
-  bulldozer: wasBulldozer ? "Bulldozer désactivé" : "Bulldozer activé"
-};
+    const labels: Record<CursorMode, string> = {
+      pan: "Déplacement",
+      road: "Route",
+      house: "Maison",
+      building: "Immeuble",
+      well: "Puits",
+      turbine: "Éolienne",
+      sawmill: "Scierie",
+      bulldozer: wasBulldozer ? "Bulldozer désactivé" : "Bulldozer activé"
+    };
     showToast(labels[tool] || tool);
     fab.classList.remove("active");
+    // close submenus after selection
+    [...fabList.querySelectorAll('li.has-sub.open')].forEach(li => li.classList.remove('open'));
   });
 }
 
