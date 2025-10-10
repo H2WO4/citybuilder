@@ -3,7 +3,7 @@ import { scene } from "./scene"
 import { ANG, CELL, Z_CURSOR, Z_PREVIEW, Z_ROAD } from "./constants"
 import { MODELS } from "./models"
 import type { CursorMode, BuildingKind, ModelKey } from "./types"
-import { money, addMoney, showSpend } from "./ui"
+// ...existing code...
 
 export let mode: CursorMode = "pan"
 export let piece: "I" | "L" | "X" = "I"
@@ -196,27 +196,12 @@ export function placeGeneric(
   wz: number,
   cost: number,
   bag: Map<string, THREE.Object3D>,
-  kind: BuildingKind,
-  opts?: { requireRoad?: boolean }
+  kind: BuildingKind
 ) {
-  if (money < cost) {
-    return { ok: false, err: "money" }
-  }
+  // NOTE: placement validations (money, occupancy, adjacency) intentionally
+  // removed — placements created locally will always be placed. Money handling
+  // and server-side validations should be handled by the caller when needed.
   const id = keyFromCenter(wx, wz)
-  if (
-    roads.has(id) ||
-    houses.has(id) ||
-    buildings.has(id) ||
-    wells.has(id) ||
-    turbines.has(id) ||
-    sawmills.has(id)
-  ) {
-    return { ok: false, err: "occupied" }
-  }
-  if (opts?.requireRoad && !hasAdjacentRoad(wx, wz)) {
-    return { ok: false, err: "no_road" }
-  }
-
   const obj = buildPlacedObject(kind, cost)
   if (!obj) {
     return { ok: false, err: "model" }
@@ -224,9 +209,6 @@ export function placeGeneric(
   obj.position.set(wx, obj.position.y, wz)
   scene.add(obj)
   bag.set(id, obj)
-  // débit du coût et popup
-  addMoney(-cost)
-  showSpend(cost)
   return { ok: true, err: "" }
 }
 

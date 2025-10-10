@@ -38,7 +38,8 @@ export interface PositionData {
 }
 
 export async function delete_one(data: PositionData): Promise<void> {
-  await query("POST", "/buildings", data)
+
+  await query("DELETE", "/buildings", data)
 
   return
 }

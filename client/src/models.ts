@@ -3,24 +3,11 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 import { CELL } from "./constants"
 import { type ModelKey, type ModelEntry, type CharEntry } from "./types"
 
-import URL_STREET_L from "../texture_models/Roads/StreetCorner.glb?url"
-import URL_STREET_I from "../texture_models/Roads/StreetStraight.glb?url"
-import URL_STREET_X from "../texture_models/Roads/Crosswalk.glb?url"
-import URL_HOUSE from "../texture_models/Buildings/House.glb?url"
-import URL_BUILDING from "../texture_models/Buildings/Building.glb?url"
-import URL_WELL from "../texture_models/Buildings/Well.glb?url"
-import URL_TURBINE from "../texture_models/Buildings/WindTurbine.glb?url"
-import URL_SAWMILL from "../texture_models/Buildings/FantasySawmill.glb?url"
-import URL_ANIMATED_WOMAN from "../texture_models/character/AnimatedWoman.glb?url"
-import URL_ANIMATED_WOMAN_2 from "../texture_models/character/AnimatedWoman2.glb?url"
-import URL_BUSINESSMAN from "../texture_models/character/BusinessMan.glb?url"
-import URL_HOODIE_CHARACTER from "../texture_models/character/HoodieCharacter.glb?url"
-
 export const gltfLoader = new GLTFLoader()
 
 export const MODELS: Record<ModelKey, ModelEntry> = {
   I: {
-    path: URL_STREET_I,
+    path: "../texture_models/Roads/StreetStraight.glb?url",
     prefab: null,
     scale: new THREE.Vector3(),
     target: [CELL, CELL],
@@ -28,7 +15,7 @@ export const MODELS: Record<ModelKey, ModelEntry> = {
     baseLift: 0
   },
   L: {
-    path: URL_STREET_L,
+    path: "../texture_models/Roads/StreetCorner.glb?url",
     prefab: null,
     scale: new THREE.Vector3(),
     target: [CELL, CELL],
@@ -36,7 +23,7 @@ export const MODELS: Record<ModelKey, ModelEntry> = {
     baseLift: 0
   },
   X: {
-    path: URL_STREET_X,
+    path: "../texture_models/Roads/Crosswalk.glb?url",
     prefab: null,
     scale: new THREE.Vector3(),
     target: [CELL, CELL],
@@ -44,7 +31,7 @@ export const MODELS: Record<ModelKey, ModelEntry> = {
     baseLift: 0
   },
   HOUSE: {
-    path: URL_HOUSE,
+    path: "../texture_models/Buildings/House.glb?url",
     prefab: null,
     scale: new THREE.Vector3(),
     target: [CELL, CELL],
@@ -52,7 +39,7 @@ export const MODELS: Record<ModelKey, ModelEntry> = {
     baseLift: 0
   },
   BUILDING: {
-    path: URL_BUILDING,
+    path: "../texture_models/Buildings/Building.glb?url",
     prefab: null,
     scale: new THREE.Vector3(),
     target: [CELL, CELL],
@@ -60,7 +47,7 @@ export const MODELS: Record<ModelKey, ModelEntry> = {
     baseLift: 0
   },
   WELL: {
-    path: URL_WELL,
+    path: "../texture_models/Buildings/Well.glb?url",
     prefab: null,
     scale: new THREE.Vector3(),
     target: [CELL, CELL],
@@ -68,7 +55,7 @@ export const MODELS: Record<ModelKey, ModelEntry> = {
     baseLift: 0
   },
   TURBINE: {
-    path: URL_TURBINE,
+    path: "../texture_models/Buildings/WindTurbine.glb?url",
     prefab: null,
     scale: new THREE.Vector3(),
     target: [CELL, CELL],
@@ -76,7 +63,7 @@ export const MODELS: Record<ModelKey, ModelEntry> = {
     baseLift: 0
   },
   SAWMILL: {
-    path: URL_SAWMILL,
+    path: "../texture_models/Buildings/FantasySawmill.glb?url",
     prefab: null,
     scale: new THREE.Vector3(),
     target: [CELL, CELL],
@@ -87,7 +74,7 @@ export const MODELS: Record<ModelKey, ModelEntry> = {
 
 export const CHAR_MODELS: CharEntry[] = [
   {
-    path: URL_ANIMATED_WOMAN,
+    path: "../texture_models/character/AnimatedWoman.glb?url",
     prefab: null,
     clips: [],
     baseScale: new THREE.Vector3(1, 1, 1),
@@ -95,7 +82,7 @@ export const CHAR_MODELS: CharEntry[] = [
     footOffset: 0
   },
   {
-    path: URL_ANIMATED_WOMAN_2,
+    path: "../texture_models/character/AnimatedWoman2.glb?url",
     prefab: null,
     clips: [],
     baseScale: new THREE.Vector3(1, 1, 1),
@@ -103,7 +90,7 @@ export const CHAR_MODELS: CharEntry[] = [
     footOffset: 0
   },
   {
-    path: URL_BUSINESSMAN,
+    path: "../texture_models/character/BusinessMan.glb?url",
     prefab: null,
     clips: [],
     baseScale: new THREE.Vector3(1, 1, 1),
@@ -111,7 +98,7 @@ export const CHAR_MODELS: CharEntry[] = [
     footOffset: 0
   },
   {
-    path: URL_HOODIE_CHARACTER,
+    path: "../texture_models/character/HoodieCharacter.glb?url",
     prefab: null,
     clips: [],
     baseScale: new THREE.Vector3(1, 1, 1),
