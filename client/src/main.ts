@@ -195,9 +195,35 @@ if (fab && fabList) {
   document.addEventListener("click", (e) => {
     if (!fab.contains(e.target as Node)) {
       fab.classList.remove("active")
+      // close any open submenus when menu closes
+      ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
     }
   })
   fabList.addEventListener("click", (event) => {
+    // Toggle submenus when clicking their labels
+    const subLabel = (event.target as HTMLElement).closest<HTMLElement>("li.has-sub > span")
+    if (subLabel) {
+      event.preventDefault()
+      event.stopPropagation()
+      const li = subLabel.parentElement as HTMLLIElement
+      // close others first
+      ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => {
+        if (el !== li) el.classList.remove("open")
+      })
+      li.classList.toggle("open")
+      return
+    }
+    // Handle road piece selection from submenu
+    const roadItem = (event.target as HTMLElement).closest<HTMLLIElement>("li[data-piece]")
+    if (roadItem) {
+      const pieceKey = (roadItem.dataset.piece || "I") as "I" | "L" | "X"
+      setPiece(pieceKey)
+      setActive("road")
+      showToast(pieceKey === "I" ? "Route droite" : pieceKey === "L" ? "Route en virage" : "Intersection")
+      ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
+      fab.classList.remove("active")
+      return
+    }
     const li = (event.target as HTMLElement).closest<HTMLLIElement>("li[data-tool]")
     if (!li) {
       return
@@ -217,6 +243,8 @@ if (fab && fabList) {
       bulldozer: wasBulldozer ? "Bulldozer désactivé" : "Bulldozer activé"
     }
     showToast(labels[tool] || tool)
+    // Close submenus when picking a tool
+    ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
     fab.classList.remove("active")
   })
 }
