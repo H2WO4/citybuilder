@@ -44,19 +44,37 @@
 
 ## Structure du projet
 
-- client/
-	- src/
-		- main.ts (orchestrateur front)
-		- scene.ts (scene/renderer/cam/lumières/ombres)
-		- models.ts (chargement GLTF, normalisation matériaux, shadow flags)
-		- placement.ts (curseur/aperçu/placement/suppression)
-		- npc.ts (spawn et déplacement PNJ)
-		- pathfinding.ts (construction navmesh trottoirs, findPath, rebuild)
-		- ui.ts (HUD, toasts, popups argent)
-		- data/ (définitions de types de bâtiments)
-- server/
-	- src/ (routes, modèles, types, données)
-	- migrations/ 
-
-
-
+- `client/`
+	- `src/`
+		- `main.ts`
+		  orchestrateur front
+		- `scene.ts`
+		  scene/renderer/cam/lumières/ombres
+		- `models.ts`
+		  chargement GLTF, normalisation matériaux, shadow flags
+		- `placement.ts`
+		  curseur/aperçu/placement/suppression
+		- `npc.ts`
+		  spawn et déplacement PNJ
+		- `pathfinding.ts`
+		  construction navmesh trottoirs, findPath, rebuild
+		- `ui.ts`
+		  HUD, toasts, popups argent
+		- `data/`
+		  définitions de types de bâtiments
+		- `server/`
+		  fonction appelant les routes du backend
+- `server/`
+	- `src/`
+	  - `index.ts`
+	 		paramètrage du serveur (CORS, gestion des sessions)
+		- `types.ts`
+		  définition du format des données des batiments
+		- `data/*.ts`
+			définition des données des batiments, rangées par classes
+		- `models/*.ts`
+			définition des tables de la DB, pour le serveur
+		- `routes/**/*.ts`
+		  définition des routes que déssert le serveur
+ 	- `migrations/`
+	   définition des tables de la DB, pour pouvoir l'instancer
