@@ -1,5 +1,7 @@
 import { fmtEUR, getMoneyStats, getSpendHistory, getRefundHistory } from './ui';
 
+type MoneyPoint = { t: number; amount: number };
+
 let isOpen = false;
 let root: HTMLDivElement | null = null;
 // no toggle button, only keyboard 'D'
@@ -53,17 +55,17 @@ export function initDashboard(){
 }
 
 function renderSpendChart(): string {
-  const spend = getSpendHistory();
-  const refund = getRefundHistory();
+  const spend: MoneyPoint[] = getSpendHistory();
+  const refund: MoneyPoint[] = getRefundHistory();
   if (!spend.length && !refund.length) {
     return `<div class="dash-empty">Aucune dépense pour le moment</div>`;
   }
   const now = performance.now();
   const windowMs = 60_000; // dernière minute
-  const fSpend = spend.filter(d => now - d.t <= windowMs);
-  const fRefund = refund.filter(d => now - d.t <= windowMs);
-  const sPoints = fSpend.length ? fSpend : spend.slice(-50);
-  const rPoints = fRefund.length ? fRefund : refund.slice(-50);
+  const fSpend: MoneyPoint[] = spend.filter((d: MoneyPoint) => now - d.t <= windowMs);
+  const fRefund: MoneyPoint[] = refund.filter((d: MoneyPoint) => now - d.t <= windowMs);
+  const sPoints: MoneyPoint[] = fSpend.length ? fSpend : spend.slice(-50);
+  const rPoints: MoneyPoint[] = fRefund.length ? fRefund : refund.slice(-50);
   const w = 300, h = 80, pad = 6;
   // Construire des courbes cumulées
   const t0 = Math.min(
@@ -71,12 +73,12 @@ function renderSpendChart(): string {
     rPoints.length ? rPoints[0].t : now
   );
   let cumS = 0, cumR = 0;
-  const sPath: [number, number][] = sPoints.map(p => {
+  const sPath: [number, number][] = sPoints.map((p: MoneyPoint) => {
     cumS += p.amount;
     const x = pad + (w - 2*pad) * ((p.t - t0) / Math.max(1, ((sPoints.length?sPoints[sPoints.length-1].t:t0) - t0)));
     return [x, cumS];
   });
-  const rPath: [number, number][] = rPoints.map(p => {
+  const rPath: [number, number][] = rPoints.map((p: MoneyPoint) => {
     cumR += p.amount;
     const x = pad + (w - 2*pad) * ((p.t - t0) / Math.max(1, ((rPoints.length?rPoints[rPoints.length-1].t:t0) - t0)));
     return [x, cumR];
