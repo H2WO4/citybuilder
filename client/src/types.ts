@@ -57,8 +57,15 @@ export interface Walker {
   idleDur: number
 }
 
+export interface Account {
+  name: String
+  hash: String
+}
+
 export interface City {
   _id: UUID
+  owner: UUID
+
   name: string
 }
 

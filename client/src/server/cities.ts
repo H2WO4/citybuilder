@@ -20,8 +20,8 @@ export async function post_one(data: CityData): Promise<City> {
   return result
 }
 
-export async function patch_one(uuid: UUID, data: CityData): Promise<City> {
-  const response = await query("PATCH", `/cities/${uuid}`, data)
+export async function patch_one(data: CityData): Promise<City> {
+  const response = await query("PATCH", "/cities/", data)
   const result = (await response.json()) as City
 
   return result

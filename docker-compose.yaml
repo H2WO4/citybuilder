@@ -1,4 +1,12 @@
 services:
+  front:
+    build: client
+    ports:
+      - 5173:80
+    profiles:
+      - frontend
+    environment:
+      VITE_API_URL: http://server:3000
   server:
     build: server
     ports:

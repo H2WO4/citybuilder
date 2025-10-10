@@ -1,4 +1,5 @@
-export let money = 200000
+export const initialMoney = 200000
+export let money = initialMoney
 const hud = document.getElementById("money-hud") as HTMLElement
 export const fmtEUR = new Intl.NumberFormat("fr-FR", {
   style: "currency",
@@ -12,10 +13,23 @@ export function renderMoney() {
 }
 renderMoney()
 
+// Totaux pour le tableau de bord
+let totalSpent = 0
+let totalRefunded = 0
+// Historique (timestamp + montant)
+type MoneyPoint = { t: number; amount: number }
+const spendHistory: MoneyPoint[] = []
+const refundHistory: MoneyPoint[] = []
+
+function dispatchMoneyChange(){
+  window.dispatchEvent(new CustomEvent('money:changed', { detail: { money, totalSpent, totalRefunded, net: money - initialMoney } }))
+}
+
 // Mutateur de solde + rendu HUD
 export function addMoney(delta: number) {
   money += delta
   renderMoney()
+  dispatchMoneyChange()
 }
 
 const toast = document.getElementById("toast") as HTMLDivElement
@@ -72,6 +86,11 @@ export function showRefund(amount: number) {
       refundAggregate?.element.classList.remove("show")
       refundAggregate = null
     }, 1500)
+    totalRefunded += amount
+    refundHistory.push({ t: now, amount })
+    if (refundHistory.length > 1000) refundHistory.shift()
+    dispatchMoneyChange()
+    window.dispatchEvent(new CustomEvent('refund:changed', { detail: { amount } }))
     return
   }
   const el = createMoneyPopup("+" + fmtEUR.format(amount), "refund", true)
@@ -84,6 +103,11 @@ export function showRefund(amount: number) {
       refundAggregate = null
     }, 1500)
   }
+  totalRefunded += amount
+  refundHistory.push({ t: now, amount })
+  if (refundHistory.length > 1000) refundHistory.shift()
+  dispatchMoneyChange()
+  window.dispatchEvent(new CustomEvent('refund:changed', { detail: { amount } }))
 }
 
 export function showSpend(amount: number) {
@@ -98,6 +122,11 @@ export function showSpend(amount: number) {
       spendAggregate?.element.classList.remove("show")
       spendAggregate = null
     }, 1500)
+    totalSpent += amount
+    spendHistory.push({ t: now, amount })
+    if (spendHistory.length > 1000) spendHistory.shift()
+    dispatchMoneyChange()
+    window.dispatchEvent(new CustomEvent('spend:changed', { detail: { amount } }))
     return
   }
   const el = createMoneyPopup("-" + fmtEUR.format(amount), "spend", true)
@@ -110,4 +139,13 @@ export function showSpend(amount: number) {
       spendAggregate = null
     }, 1500)
   }
+  totalSpent += amount
+  spendHistory.push({ t: now, amount })
+  if (spendHistory.length > 1000) spendHistory.shift()
+  dispatchMoneyChange()
+  window.dispatchEvent(new CustomEvent('spend:changed', { detail: { amount } }))
 }
+
+export function getMoneyStats(){ return { money, totalSpent, totalRefunded, net: money - initialMoney } }
+export function getSpendHistory(){ return spendHistory }
+export function getRefundHistory(){ return refundHistory }
