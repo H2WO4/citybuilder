@@ -60,10 +60,7 @@ function addCrossSidewalks(geoms: THREE.BufferGeometry[], cx: number, cz: number
 export function rebuildNavmesh() {
   const geoms: THREE.BufferGeometry[] = [];
   for (const [key, obj] of roads) {
-    // keys are canonical tile indices "ix:iz" — convert to world center coords
-    const [ix, iz] = key.split(':').map(Number);
-    const cx = ix * CELL + CELL * 0.5;
-    const cz = iz * CELL + CELL * 0.5;
+    const [cx, cz] = key.split(':').map(Number);
     const piece: 'I' | 'L' | 'X' = (obj as any).userData?.piece ?? 'I';
     const angleIdx: number = (obj as any).userData?.angle ?? 0;
     const yaw = ANG[angleIdx] || 0;

@@ -146,15 +146,7 @@ export function clearExampleBuildings() {
 }
 
 
-import { getMode } from "./placement";
-
 export async function placeBuilding(kind: string, wx: number, wz: number, cost: number) {
-  // Empêche le placement si le mode courant n'est pas un mode de construction
-  const mode = getMode();
-  if (mode === "pan" || mode === "bulldozer" || !["road","house","building","well","turbine","sawmill"].includes(mode)) {
-    showToast("Sélectionne un type de bâtiment avant de placer !");
-    return { ok: false, err: "bad_mode" };
-  }
   const city = getSelectedCity();
   if (city === null) {
     return { ok: false, err: "no_city" };
@@ -192,29 +184,6 @@ export async function placeBuilding(kind: string, wx: number, wz: number, cost: 
     const worldZ = iz * STEP + STEP * 0.5;
     obj.position.set(worldX, obj.position.y, worldZ);
     scene.add(obj);
-    // register placed object in the placement bags so bulldozer and NPCs can
-    // find it. Use canonical keyFromCenter to match seeded objects.
-    try {
-      const id = keyFromCenter(worldX, worldZ)
-      const t = (kind || "").toLowerCase()
-      ;(obj as any).userData = { ...(obj as any).userData, cost, example: false }
-      if (t === "house") {
-        houses.set(id, obj)
-      } else if (t === "building") {
-        placedBuildings.set(id, obj)
-      } else if (t === "road") {
-        roads.set(id, obj)
-      } else if (t === "well") {
-        placedWells.set(id, obj)
-      } else if (t === "turbine") {
-        placedTurbines.set(id, obj)
-      } else if (t === "sawmill") {
-        placedSawmills.set(id, obj)
-      }
-    } catch (e) {
-      // non-fatal: registration failure shouldn't block placement
-      console.warn('placeBuilding: failed to register placed object', e)
-    }
     addMoney(-cost);
     showSpend(cost);
     if (res && (res as any)._id) {
@@ -224,47 +193,6 @@ export async function placeBuilding(kind: string, wx: number, wz: number, cost: 
   } catch (e: any) {
     showToast(STR.TOAST.PLACEMENT_FAILED);
     return { ok: false, err: "server" };
-  }
-}
-
-export async function refreshCity(city?: string | null) {
-  // clear current example objects then fetch & seed from server for the
-  // provided city (or selected city if omitted).
-  let target = city || getSelectedCity()
-  if (!target) {
-    try {
-      const cities = await getAllCities()
-      if (cities && cities.length > 0) target = (cities[0] as any)._id
-    } catch (e) {
-      console.warn('refreshCity: failed to fetch cities', e)
-    }
-  }
-  // clear local placement objects and examples so the scene mirrors the
-  // server state for this city. This removes any previously-placed objects
-  // and avoids stale visuals requiring a manual reload.
-  try {
-    // remove and clear all placement maps
-    for (const m of [houses, placedBuildings, roads, placedWells, placedTurbines, placedSawmills]) {
-      for (const obj of m.values()) {
-        try {
-          removeObject(obj)
-        } catch (e) {
-          // ignore
-        }
-      }
-      m.clear()
-    }
-  } catch (e) {
-    console.warn('refreshCity: failed to clear placement maps', e)
-  }
-  // also clear seeded examples
-  clearExampleBuildings()
-  if (!target) return
-  try {
-    const all = await getAllBuildingsForCity(target as any)
-    await seedExampleBuildings(all)
-  } catch (e) {
-    console.warn('refreshCity: failed to load buildings for', target, e)
   }
 }
 

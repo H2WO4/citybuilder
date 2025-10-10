@@ -77,8 +77,8 @@ async function initCitySelector() {
     for (const c of cities) {
       const opt = document.createElement('option')
       opt.value = (c as any)._id
-      // Affiche seulement le nom de la ville (ou l'UUID si pas de nom)
-      opt.textContent = (c as any).name || (c as any)._id
+      // show name + uuid so user can see the id
+      opt.textContent = `${(c as any).name || (c as any)._id} — ${(c as any)._id}`
       citySelectEl.appendChild(opt)
     }
     if (saved) {
@@ -196,35 +196,9 @@ if (fab && fabList) {
   document.addEventListener("click", (e) => {
     if (!fab.contains(e.target as Node)) {
       fab.classList.remove("active")
-      // close any open submenus when menu closes
-      ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
     }
   })
   fabList.addEventListener("click", (event) => {
-    // Toggle submenus when clicking their labels
-    const subLabel = (event.target as HTMLElement).closest<HTMLElement>("li.has-sub > span")
-    if (subLabel) {
-      event.preventDefault()
-      event.stopPropagation()
-      const li = subLabel.parentElement as HTMLLIElement
-      // close others first
-      ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => {
-        if (el !== li) el.classList.remove("open")
-      })
-      li.classList.toggle("open")
-      return
-    }
-    // Handle road piece selection from submenu
-    const roadItem = (event.target as HTMLElement).closest<HTMLLIElement>("li[data-piece]")
-    if (roadItem) {
-      const pieceKey = (roadItem.dataset.piece || "I") as "I" | "L" | "X"
-      setPiece(pieceKey)
-      setActive("road")
-      showToast(pieceKey === "I" ? "Route droite" : pieceKey === "L" ? "Route en virage" : "Intersection")
-      ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
-      fab.classList.remove("active")
-      return
-    }
     const li = (event.target as HTMLElement).closest<HTMLLIElement>("li[data-tool]")
     if (!li) {
       return
@@ -244,8 +218,6 @@ if (fab && fabList) {
       bulldozer: wasBulldozer ? "Bulldozer désactivé" : "Bulldozer activé"
     }
     showToast(labels[tool] || tool)
-    // Close submenus when picking a tool
-    ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
     fab.classList.remove("active")
   })
 }
@@ -443,25 +415,7 @@ addEventListener("pointerdown", (e) => {
           // server-backed delete: prefer using city+position; fall back to _id if present
           ;(async () => {
             try {
-              // Determine the city robustly: runtime state > DOM selector > localStorage
-              let city: string | null = null
-              try {
-                city = (await import("./state")).getSelectedCity()
-              } catch (e) {
-                // ignore
-              }
-              if (!city) {
-                try {
-                  const sel = document.getElementById('city-select') as HTMLSelectElement | null
-                  if (sel && sel.value) city = sel.value
-                } catch (e) {
-                  // ignore
-                }
-              }
-              if (!city) {
-                city = localStorage.getItem('selectedCity') || null
-              }
-
+              const city = (await import("./state")).getSelectedCity()
               if (city) {
                 try {
                   // use the shared worldToCellIndex logic to compute tile indices
@@ -473,18 +427,13 @@ addEventListener("pointerdown", (e) => {
                 }
                 // refresh examples from server so the scene matches backend
                 try {
-                  const { refreshCity } = await import("./grille")
-                  await refreshCity(city)
+                  const { clearExampleBuildings, seedExampleBuildings } = await import("./grille")
+                  const { get_all_from_city } = await import("./server/buildings")
+                  clearExampleBuildings()
+                  const all = await get_all_from_city(city)
+                  await seedExampleBuildings(all)
                 } catch (e) {
                   console.warn("failed to refresh buildings after delete", e)
-                }
-              } else {
-                // no city known: still try to refresh UI by clearing examples
-                try {
-                  const { clearExampleBuildings } = await import("./grille")
-                  clearExampleBuildings()
-                } catch (e) {
-                  // ignore
                 }
               }
             } catch (e) {
