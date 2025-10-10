@@ -1,4 +1,12 @@
 services:
+  front:
+    build: client
+    ports:
+      - 5173:80
+    profiles:
+      - frontend
+    environment:
+      VITE_API_URL: http://server:3000
   server:
     build: server
     ports:
@@ -8,6 +16,7 @@ services:
     profiles:
       - backend
     environment:
+      PORT: 3000
       DB_HOST: db
       DB_PORT: 27017
       DB_BASE: main
