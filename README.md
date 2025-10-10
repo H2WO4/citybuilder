@@ -1,10 +1,14 @@
+
 ## Aperçu
 
-- Rendu Three.js ,grille dynamique, lumière hémisphérique + soleil directionnel avec ombres.
+- Authentification complète : connexion, création de compte, gestion de session (modale dédiée, bouton déconnexion, feedback d’erreur).
+- Sélecteur de ville multi-joueurs (liste déroulante, chargement dynamique des villes, endpoints sécurisés).
+- Dashboard financier interactif : historique des dépenses/remboursements, graphiques, totaux, accessible via le menu ou la touche D.
+- Rendu Three.js : grille dynamique, lumière hémisphérique + soleil directionnel avec ombres.
 - Placement (routes, maisons, immeubles, services) avec coût, remboursement configurable, bulldozer et prévisualisation.
 - PNJ animés circulant sur un navmesh de trottoirs calculé depuis la géométrie des routes (three-pathfinding), aller/retour entre maisons et bâtiments.
-- UI: HUD argent, toasts, popups de dépenses/remboursements, menu d’outils flottant.
-- Back-end: structure serveur TypeScript, routes de base Cities/Buildings
+- UI : HUD argent, toasts, popups de dépenses/remboursements, menu d’outils flottant.
+- Back-end : structure serveur TypeScript, routes sécurisées Accounts/Cities/Buildings.
 
 
 ## Raccourcis clavier 
@@ -18,18 +22,25 @@
 - Sélection rapide outils: 1 (Puits), 2 (Éolienne), 3 (Scierie)
 - Annuler placement/bulldozer: clic droit
 
+
 ## Fonctionnalités clés
 
-- Placement et prévisualisation
+- **Authentification & Comptes**
+	- Modale de connexion/inscription, gestion d’erreur, session persistante, bouton déconnexion dynamique.
+- **Sélecteur de ville**
+	- Liste déroulante des villes, endpoints sécurisés, changement de ville en temps réel.
+- **Dashboard financier**
+	- Historique graphique des dépenses/remboursements, totaux, accessible via menu ou touche D.
+- **Placement et prévisualisation**
 	- Aperçu semi‑transparent, rotation (A), alignement au centre de cellule, vérifs d’occupation et d’adjacence route.
-- Bulldozer et remboursement
+- **Bulldozer et remboursement**
 	- Suppression d’objets, remboursement partiel via `REFUND_RATIO` et popup de crédit.
-- Argent/HUD/Toasts
+- **Argent/HUD/Toasts**
 	- `addMoney()` centralise le solde, rend le HUD et agrège les popups de dépenses/remboursements.
-- PNJ et pathfinding
+- **PNJ et pathfinding**
 	- PNJ animés (GLTF), marche sur trottoirs; navmesh reconstruit automatiquement lors d’ajouts/suppressions de routes.
-- Lumières et ombres
-	- Soleil directionnel avec ombres dynamiques 
+- **Lumières et ombres**
+	- Soleil directionnel avec ombres dynamiques.
 
 ## Structure du projet
 
