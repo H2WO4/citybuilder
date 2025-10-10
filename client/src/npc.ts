@@ -41,20 +41,19 @@ function facingDirFromAngle(idx: number) {
 }
 function chooseFrontRoad(wx: number, wz: number, angleIdx: number) {
   const f = facingDirFromAngle(angleIdx)
-  const frontKey = `${wx + f.dx * CELL}:${wz + f.dz * CELL}`
-  if (roads.has(frontKey)) {
+  if (roads.has(keyFromCenter(wx + f.dx * CELL, wz + f.dz * CELL))) {
     return { dx: f.dx, dz: f.dz }
   }
-  if (roads.has(`${wx + CELL}:${wz}`)) {
+  if (roads.has(keyFromCenter(wx + CELL, wz))) {
     return { dx: 1, dz: 0 }
   }
-  if (roads.has(`${wx - CELL}:${wz}`)) {
+  if (roads.has(keyFromCenter(wx - CELL, wz))) {
     return { dx: -1, dz: 0 }
   }
-  if (roads.has(`${wx}:${wz + CELL}`)) {
+  if (roads.has(keyFromCenter(wx, wz + CELL))) {
     return { dx: 0, dz: 1 }
   }
-  if (roads.has(`${wx}:${wz - CELL}`)) {
+  if (roads.has(keyFromCenter(wx, wz - CELL))) {
     return { dx: 0, dz: -1 }
   }
   return null

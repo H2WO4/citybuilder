@@ -1,3 +1,5 @@
+import { CELL } from "../constants"
+import * as THREE from "three"
 import { BuildingClass, type BuildingType } from "../types"
 
 export const Straight: BuildingType = {
@@ -7,7 +9,16 @@ export const Straight: BuildingType = {
   class: BuildingClass.Roads,
   cost: 100,
 
-  stats: {}
+  stats: {},
+
+  model: {
+    path: "../texture_models/Roads/StreetStraight.glb?url",
+        prefab: null,
+        scale: new THREE.Vector3(),
+        target: [CELL, CELL],
+        scaleMul: 1,
+        baseLift: 0
+  }
 }
 
 export const Corner: BuildingType = {

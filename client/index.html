@@ -44,8 +44,6 @@
     </ul>
   </div>
 
-  <div class="ui panel money-hud" id="money-hud"></div>
-
   <div class="ui panel res-hud" id="res-hud">
     ⚡ <span id="r-power">0</span>&nbsp;
     💧 <span id="r-water">0</span>&nbsp;
@@ -53,7 +51,11 @@
     🪵 <span id="r-wood">0</span>
   </div>
 
-  <div class="ui panel fps-hud" id="fps-hud">— FPS</div>
+  <!-- Top-right HUD container: money + fps -->
+  <div class="ui hud-top-right">
+    <div class="ui panel money-hud" id="money-hud"></div>
+    <div class="ui panel fps-hud" id="fps-hud">— FPS</div>
+  </div>
 
   <div class="ui toast" id="toast"></div>
   <div class="ui money-popups" id="money-popups"></div>

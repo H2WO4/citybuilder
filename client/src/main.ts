@@ -1,10 +1,10 @@
-import { login, signin, logout } from "./server/accounts"
+import { login, signin } from "./server/accounts"
 // Gestion de la pop-up d'authentification
 function showAuthModal(show = true) {
   const overlay = document.getElementById("auth-modal-overlay") as HTMLDivElement
   if (overlay) overlay.classList.toggle("hidden", !show)
   if (show) {
-    (document.getElementById("auth-username") as HTMLInputElement)?.focus()
+    ;(document.getElementById("auth-username") as HTMLInputElement)?.focus()
   }
 }
 
@@ -113,26 +113,26 @@ function updateLogoutBtn() {
 }
 
 // Gestion de la déconnexion
-async function handleLogout() {
-  try {
-    await logout()
-  } catch (err: any) {
-    // Si l'erreur est "please login first", c'est que l'utilisateur n'était déjà plus connecté côté serveur
-    // On continue quand même la déconnexion côté client
-    if (!err.message.includes("please login first")) {
-      console.error("Erreur de déconnexion:", err)
-      showToast("Erreur lors de la déconnexion.")
-      return
-    }
-  }
-  
-  // Déconnexion côté client dans tous les cas
-  setAuthenticated(false)
-  showAuthModal(true)
-  blockBackgroundInteractions(true)
-  updateLogoutBtn()
-  showToast("Déconnexion réussie.")
-}
+// async function handleLogout() {
+//   try {
+//     await logout()
+//   } catch (err: any) {
+//     // Si l'erreur est "please login first", c'est que l'utilisateur n'était déjà plus connecté côté serveur
+//     // On continue quand même la déconnexion côté client
+//     if (!err.message.includes("please login first")) {
+//       console.error("Erreur de déconnexion:", err)
+//       showToast("Erreur lors de la déconnexion.")
+//       return
+//     }
+//   }
+
+//   // Déconnexion côté client dans tous les cas
+//   setAuthenticated(false)
+//   showAuthModal(true)
+//   blockBackgroundInteractions(true)
+//   updateLogoutBtn()
+//   showToast("Déconnexion réussie.")
+// }
 
 // Affiche la modale si non connecté
 document.addEventListener("DOMContentLoaded", () => {
@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
     blockBackgroundInteractions(true)
   }
   // Initialiser le dashboard financier (touche D)
-  import("./dashboard").then(m => m.initDashboard())
+  import("./dashboard").then((m) => m.initDashboard())
 })
 import * as THREE from "three"
 import {
@@ -179,7 +179,8 @@ import {
   setMode,
   setPiece,
   getPiece,
-  incAngle
+  incAngle,
+  keyFromCenter
 } from "./placement"
 import { updateWalkers } from "./npc"
 import { showToast } from "./ui"
@@ -203,25 +204,24 @@ function overUI(e: any) {
   return !!(e && e.target && (e.target as HTMLElement).closest(".ui"))
 }
 
-
 // mode + UI
 let currentMode: CursorMode = "pan"
 
 // city selector wiring
 async function initCitySelector() {
-  const citySelectEl = document.getElementById('city-select') as HTMLSelectElement | null
+  const citySelectEl = document.getElementById("city-select") as HTMLSelectElement | null
   if (!citySelectEl) return
   citySelectEl.innerHTML = '<option value="">Chargement...</option>'
   try {
     const cities = await getAllCities()
-    citySelectEl.innerHTML = ''
+    citySelectEl.innerHTML = ""
     if (!cities || cities.length === 0) {
       citySelectEl.innerHTML = '<option value="">Aucune ville</option>'
       return
     }
-    const saved = localStorage.getItem('selectedCity')
+    const saved = localStorage.getItem("selectedCity")
     for (const c of cities) {
-      const opt = document.createElement('option')
+      const opt = document.createElement("option")
       opt.value = (c as any)._id
       // show name + uuid so user can see the id
       opt.textContent = `${(c as any).name || (c as any)._id} — ${(c as any)._id}`
@@ -236,51 +236,51 @@ async function initCitySelector() {
         clearExampleBuildings()
         await seedExampleBuildings(b)
       } catch (e) {
-        console.warn('failed to seed saved city', e)
+        console.warn("failed to seed saved city", e)
       }
     } else {
       // no saved selection: try to auto-select Amiens if present
-      const amiens = cities.find((c: any) => ((c.name || '') as string).toLowerCase() === 'amiens')
+      const amiens = cities.find((c: any) => ((c.name || "") as string).toLowerCase() === "amiens")
       if (amiens) {
         const id = (amiens as any)._id
         citySelectEl.value = id
         setSelectedCity(id)
-        localStorage.setItem('selectedCity', id)
+        localStorage.setItem("selectedCity", id)
         try {
           const b = await getAllBuildingsForCity(id)
           clearExampleBuildings()
           await seedExampleBuildings(b)
         } catch (e) {
-          console.warn('failed to seed Amiens', e)
+          console.warn("failed to seed Amiens", e)
         }
       }
     }
-    citySelectEl.addEventListener('change', async () => {
+    citySelectEl.addEventListener("change", async () => {
       const v = citySelectEl.value || null
       if (v) {
         setSelectedCity(v)
-        localStorage.setItem('selectedCity', v)
+        localStorage.setItem("selectedCity", v)
         // clear existing examples and re-seed from the selected city
         clearExampleBuildings()
         try {
           const buildings = await getAllBuildingsForCity(v)
           await seedExampleBuildings(buildings)
         } catch (e) {
-          console.warn('failed to load buildings for city', e)
+          console.warn("failed to load buildings for city", e)
         }
       } else {
         setSelectedCity(null)
-        localStorage.removeItem('selectedCity')
+        localStorage.removeItem("selectedCity")
       }
     })
   } catch (e) {
-    console.warn('initCitySelector failed', e)
+    console.warn("initCitySelector failed", e)
     citySelectEl.innerHTML = '<option value="">Erreur</option>'
   }
 }
 
 // ensure selector is initialized once DOM is ready (script may run before DOM)
-document.addEventListener('DOMContentLoaded', () => initCitySelector())
+document.addEventListener("DOMContentLoaded", () => initCitySelector())
 function updateFabActive() {
   const fabList = document.getElementById("fab-tools")
   if (!fabList) {
@@ -342,65 +342,9 @@ if (fab && fabList) {
   document.addEventListener("click", (e) => {
     if (!fab.contains(e.target as Node)) {
       fab.classList.remove("active")
-      // close any open submenus when menu closes
-      ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
     }
   })
   fabList.addEventListener("click", (event) => {
-    // Toggle submenus when clicking their labels
-    const subLabel = (event.target as HTMLElement).closest<HTMLElement>("li.has-sub > span")
-    if (subLabel) {
-      event.preventDefault()
-      event.stopPropagation()
-      const li = subLabel.parentElement as HTMLLIElement
-      // close others first
-      ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => {
-        if (el !== li) el.classList.remove("open")
-      })
-      li.classList.toggle("open")
-      return
-    }
-    // Handle road piece selection from submenu
-    const roadItem = (event.target as HTMLElement).closest<HTMLLIElement>("li[data-piece]")
-    if (roadItem) {
-      const pieceKey = (roadItem.dataset.piece || "I") as "I" | "L" | "X"
-      setPiece(pieceKey)
-      setActive("road")
-      showToast(pieceKey === "I" ? "Route droite" : pieceKey === "L" ? "Route en virage" : "Intersection")
-      ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
-      fab.classList.remove("active")
-      return
-    }
-    // Handle dashboard button click
-    const dashboardItem = (event.target as HTMLElement).closest<HTMLLIElement>("#dashboard-fab-item")
-    if (dashboardItem) {
-      event.preventDefault()
-      event.stopPropagation()
-      import("./dashboard").then(m => {
-        // Ouvre/ferme le dashboard
-        let dash = document.getElementById("dashboard") as HTMLDivElement | null
-        if (!dash) {
-          dash = document.createElement("div")
-          dash.id = "dashboard"
-          dash.className = "dashboard ui panel open"
-          document.body.appendChild(dash)
-          m.initDashboard(true)
-        } else {
-          dash.classList.toggle("open")
-        }
-      })
-      fab.classList.remove("active")
-      return
-    }
-    // Handle logout button click
-    const logoutItem = (event.target as HTMLElement).closest<HTMLLIElement>("#logout-fab-item")
-    if (logoutItem) {
-      event.preventDefault()
-      event.stopPropagation()
-      handleLogout()
-      fab.classList.remove("active")
-      return
-    }
     const li = (event.target as HTMLElement).closest<HTMLLIElement>("li[data-tool]")
     if (!li) {
       return
@@ -420,8 +364,6 @@ if (fab && fabList) {
       bulldozer: wasBulldozer ? "Bulldozer désactivé" : "Bulldozer activé"
     }
     showToast(labels[tool] || tool)
-    // Close submenus when picking a tool
-    ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
     fab.classList.remove("active")
   })
 }
@@ -442,7 +384,11 @@ function cyclePiece() {
 }
 addEventListener("keydown", (e) => {
   // Bloquer les raccourcis si l'utilisateur n'est pas connecté ou si un champ de saisie est actif
-  if (!isAuthenticated() || (e.target as HTMLElement)?.tagName === 'INPUT' || (e.target as HTMLElement)?.tagName === 'TEXTAREA') {
+  if (
+    !isAuthenticated() ||
+    (e.target as HTMLElement)?.tagName === "INPUT" ||
+    (e.target as HTMLElement)?.tagName === "TEXTAREA"
+  ) {
     return
   }
 
@@ -565,7 +511,7 @@ async function tryPlace(m: CursorMode, x: number, z: number) {
       return
     }
     if (pb.err === "no_city") {
-  const res = placeGeneric(x, z, cost, bag, m as BuildingKind)
+      const res = placeGeneric(x, z, cost, bag, m as BuildingKind)
       if (!res.ok) {
         if ((m === "house" || m === "building") && res.err === "no_road") {
           showToast("Besoin d’une route adjacente pour placer ici")
@@ -578,7 +524,7 @@ async function tryPlace(m: CursorMode, x: number, z: number) {
   } catch (e) {
     console.log(e)
     // unexpected error — fallback to local placement
-  const res = placeGeneric(x, z, cost, bag, m as BuildingKind)
+    const res = placeGeneric(x, z, cost, bag, m as BuildingKind)
     if (!res.ok) {
       if ((m === "house" || m === "building") && res.err === "no_road") {
         showToast("Besoin d’une route adjacente pour placer ici")
@@ -599,8 +545,9 @@ addEventListener("pointerdown", (e) => {
     }
     const s = snapToCell(p)
     if (currentMode === "bulldozer") {
-      // Cherche un objet à supprimer à cette position
-      const id = `${s.x}:${s.z}`
+      // Cherche un objet à supprimer à cette position using canonical tile keys
+      // computed by keyFromCenter (which uses integer tile indices).
+      const id = keyFromCenter(s.x, s.z)
       let found = false
       const bags = [houses, buildings, wells, turbines, sawmills, roads]
       for (const bag of bags) {
@@ -724,5 +671,3 @@ function tick() {
   requestAnimationFrame(tick)
 }
 requestAnimationFrame(tick)
-
-

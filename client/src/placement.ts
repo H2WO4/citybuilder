@@ -164,7 +164,15 @@ export function buildPlacedObject(
 }
 
 export function keyFromCenter(wx: number, wz: number) {
-  return `${wx}:${wz}`
+  // Use integer tile indices as the canonical key so seeded objects and
+  // preview/cursor-generated keys match exactly (avoids float formatting
+  // and rounding mismatches). CELL is equal to STEP in constants.
+  const ix = Math.floor(wx / CELL)
+  const iz = Math.floor(wz / CELL)
+  return `${ix}:${iz}`
+}
+export function keyFromTile(ix: number, iz: number) {
+  return `${ix}:${iz}`
 }
 export function hasAdjacentRoad(wx: number, wz: number) {
   return (

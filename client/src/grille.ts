@@ -96,7 +96,7 @@ export async function seedExampleBuildings(data?: Building[]) {
       try {
         // also register in the placement bags so bulldozer can find these seeded objects
         const id = keyFromCenter(wx, wz)
-        const t = (b as any).type as string
+        const t = ((b as any).type as string || "").toLowerCase()
         if (t === "house") {
           houses.set(id, obj)
         } else if (t === "building") {

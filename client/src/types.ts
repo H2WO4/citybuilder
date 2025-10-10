@@ -108,4 +108,14 @@ export interface BuildingType {
     water?: number
     food?: number
   }
+  model?:{
+  path: string
+  prefab: THREE.Object3D | null
+  scale: THREE.Vector3
+  target: [number, number]
+  scaleMul: number
+  baseLift: number
 }
+}
+
+
