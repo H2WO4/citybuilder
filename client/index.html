@@ -1,11 +1,14 @@
 <!doctype html>
 <html lang="fr">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>City Builder</title>
   <link rel="stylesheet" href="/styles/main.scss">
+  <script type="module" src="/src/main.ts"></script>
 </head>
+
 <body>
 
   <div class="action ui" id="fab" aria-label="Menu actions" role="button">
@@ -43,14 +46,18 @@
 
   <div class="ui panel fps-hud" id="fps-hud">— FPS</div>
 
-  <!-- Dashboard panel -->
-  <div class="ui panel dashboard" id="dashboard"></div>
-
- 
   <div class="ui toast" id="toast"></div>
   <div class="ui money-popups" id="money-popups"></div>
 
-  
-  <script type="module" src="/src/main.ts"></script>
+
+  <!-- City selector (bottom-right) -->
+  <div class="ui panel city-select" id="city-select-panel">
+    <label for="city-select">Ville</label>
+    <select id="city-select">
+      <option value="">Chargement...</option>
+    </select>
+  </div>
+
 </body>
+
 </html>

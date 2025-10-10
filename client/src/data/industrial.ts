@@ -10,7 +10,7 @@ export const Farm: BuildingType = {
   stats: {
     population: {
       houses: 3,
-      employs: 5,
+      employs: 5
     },
     electricity: -10,
     water: -10
@@ -40,7 +40,7 @@ export const Sawmill: BuildingType = {
 
   stats: {
     population: {
-      employs: 40,
+      employs: 40
     },
     money: 400,
     electricity: -200,
@@ -57,7 +57,7 @@ export const Factory: BuildingType = {
 
   stats: {
     population: {
-      employs: 60,
+      employs: 60
     },
     money: 400,
     electricity: -250,
