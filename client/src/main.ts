@@ -142,6 +142,8 @@ document.addEventListener("DOMContentLoaded", () => {
     showAuthModal(true)
     blockBackgroundInteractions(true)
   }
+  // Initialiser le dashboard financier (touche D)
+  import("./dashboard").then(m => m.initDashboard())
 })
 import * as THREE from "three"
 import {
@@ -366,6 +368,27 @@ if (fab && fabList) {
       setActive("road")
       showToast(pieceKey === "I" ? "Route droite" : pieceKey === "L" ? "Route en virage" : "Intersection")
       ;[...fabList.querySelectorAll("li.has-sub.open")].forEach((el) => el.classList.remove("open"))
+      fab.classList.remove("active")
+      return
+    }
+    // Handle dashboard button click
+    const dashboardItem = (event.target as HTMLElement).closest<HTMLLIElement>("#dashboard-fab-item")
+    if (dashboardItem) {
+      event.preventDefault()
+      event.stopPropagation()
+      import("./dashboard").then(m => {
+        // Ouvre/ferme le dashboard
+        let dash = document.getElementById("dashboard") as HTMLDivElement | null
+        if (!dash) {
+          dash = document.createElement("div")
+          dash.id = "dashboard"
+          dash.className = "dashboard ui panel open"
+          document.body.appendChild(dash)
+          m.initDashboard(true)
+        } else {
+          dash.classList.toggle("open")
+        }
+      })
       fab.classList.remove("active")
       return
     }
