@@ -11,6 +11,10 @@ profiles:
     data:
       $ref: "#/.base_profile_data"
       host: http://localhost:3000
+  vm:
+    data:
+      $ref: "#/.base_profile_data"
+      host: http://195.15.242.107:3000
 
 requests:
   accounts:
@@ -25,6 +29,10 @@ requests:
           data:
             name: "{{ prompt(message='Name') }}"
             pass: "{{ prompt(message='Pass') }}"
+      a_whoami:
+        name: Who am I?
+        method: GET
+        url: "{{ host }}/whoami"
       a_post_one:
         name: Post One
         method: POST

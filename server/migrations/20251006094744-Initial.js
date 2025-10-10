@@ -23,6 +23,9 @@ export async function up(db) {
   await db.collection("cities").createIndex({
     name: 1,
   }, { unique: true })
+  await db.collection("cities").createIndex({
+    owner: 1,
+  }, { unique: true })
 
   await db.createCollection("buildings", {
     validator: {

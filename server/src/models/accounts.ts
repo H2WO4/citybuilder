@@ -1,10 +1,11 @@
-import { model, Schema, Types } from "mongoose"
+import { model, Schema } from "mongoose"
 
-const Account = new Schema({
-  name: String,
-  hash: String,
+const Account = new Schema(
+  {
+    name: String,
+    hash: String
+  },
+  { versionKey: false }
+)
 
-  city: Types.ObjectId,
-}, { versionKey: false })
-
-export const Accounts= model("Account", Account)
+export const Accounts = model("Account", Account)

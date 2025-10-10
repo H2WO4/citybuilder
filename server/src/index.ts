@@ -1,17 +1,38 @@
 import "dotenv/config"
 import express from "express"
 import cors from "cors"
-import cookie_session from "cookie-session"
-import mongoose from "mongoose"
+import session from "express-session"
+import mongoose, { Types } from "mongoose"
 
-// Setup
+import { Request, Response } from "express"
+
+declare module "express-session" {
+  interface SessionData {
+    user?: Types.ObjectId
+  }
+}
+
 const ENV = process.env
 
 export const PORT = ENV.PORT
 export const APP = express()
 APP.use(express.json())
 APP.use(cors())
-APP.use(cookie_session())
+APP.use(
+  session({
+    resave: false,
+    saveUninitialized: false,
+    secret: "cat"
+  })
+)
+
+export function auth(req: Request, res: Response, next: any) {
+  if (req.session.user !== undefined) {
+    next()
+  } else {
+    res.status(401).send("please login first")
+  }
+}
 
 const DB_URL = `mongodb://${ENV.DB_HOST}:${ENV.DB_PORT}/${ENV.DB_BASE}`
 mongoose.connect(DB_URL).then(() => console.log("Connected!"))
