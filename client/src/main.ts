@@ -1,4 +1,4 @@
-import { login, signin, logout } from "./server/accounts"
+import { login, signin } from "./server/accounts"
 // Gestion de la pop-up d'authentification
 function showAuthModal(show = true) {
   const overlay = document.getElementById("auth-modal-overlay") as HTMLDivElement
